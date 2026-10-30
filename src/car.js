@@ -208,26 +208,78 @@ export function buildCar() {
   makeWheel('vehicle.wheels.rear_left', 0.8, -1.42);
   makeWheel('vehicle.wheels.rear_right', -0.8, -1.42);
 
-  // ---- Engine bay (placeholder D16Y8 hint, visible with hood open) ----
+  // ---- Engine bay (placeholder D16Y8, visible with hood open, explodable) ----
+  const explodable = [];
+  function bayPart(id, mesh, off) {
+    mesh.userData.componentId = id;
+    mesh.castShadow = true;
+    explodable.push({ mesh, base: mesh.position.clone(), off: new THREE.Vector3(...off) });
+    car.add(mesh);
+    return mesh;
+  }
+
   const engineBlock = new THREE.Mesh(rounded(0.95, 0.32, 0.85, 0.05), M.engine());
   engineBlock.position.set(0, 0.66, 1.58);
-  engineBlock.userData.componentId = 'vehicle.engine.block';
-  car.add(engineBlock);
+  bayPart('vehicle.engine.block', engineBlock, [0, 0, 0]);
 
   const valveCover = new THREE.Mesh(rounded(0.5, 0.08, 0.65, 0.03), new THREE.MeshStandardMaterial({ color: 0x9aa5b1, metalness: 0.6, roughness: 0.4 }));
-  valveCover.position.set(0, 0.85, 1.58);
-  valveCover.userData.componentId = 'vehicle.engine.valve_cover';
-  car.add(valveCover);
+  valveCover.position.set(0, 0.84, 1.58);
+  bayPart('vehicle.engine.valve_cover', valveCover, [0, 0.55, 0]);
+
+  // Intake: manifold on the front face of the block, airbox behind it
+  const intakeManifold = new THREE.Mesh(rounded(0.28, 0.26, 0.3, 0.05), M.engine());
+  intakeManifold.position.set(-0.3, 0.7, 1.75);
+  bayPart('vehicle.engine.intake_manifold', intakeManifold, [-0.5, 0.15, 0.5]);
+
+  const throttleBody = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.08, 14), M.chrome());
+  throttleBody.rotation.x = Math.PI / 2;
+  throttleBody.position.set(-0.3, 0.7, 1.9);
+  bayPart('vehicle.engine.throttle_body', throttleBody, [-0.6, 0.2, 0.8]);
+
+  const airFilter = new THREE.Mesh(rounded(0.34, 0.28, 0.3, 0.05), M.dark());
+  airFilter.position.set(-0.45, 0.7, 1.05);
+  bayPart('vehicle.engine.air_filter', airFilter, [-0.8, 0.3, -0.6]);
+
+  const fuelRail = new THREE.Mesh(rounded(0.24, 0.05, 0.26, 0.015), M.chrome());
+  fuelRail.position.set(-0.3, 0.82, 1.75);
+  bayPart('vehicle.engine.fuel_rail', fuelRail, [-0.3, 0.85, 0.6]);
 
   const radiator = new THREE.Mesh(rounded(0.9, 0.36, 0.07, 0.02), dark);
   radiator.position.set(0, 0.65, 2.0);
-  radiator.userData.componentId = 'vehicle.engine.radiator';
-  car.add(radiator);
+  bayPart('vehicle.engine.radiator', radiator, [0, 0, 0.9]);
+
+  const radHose = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 8, 14, Math.PI / 2), M.dark());
+  radHose.position.set(0.4, 0.8, 2.0);
+  radHose.rotation.z = -Math.PI / 2;
+  bayPart('vehicle.engine.radiator_hose', radHose, [0, 0.25, 0.9]);
+
+  const coolantRes = new THREE.Mesh(rounded(0.16, 0.2, 0.1, 0.03), new THREE.MeshStandardMaterial({ color: 0xd8e8f0, transparent: true, opacity: 0.85, roughness: 0.2 }));
+  coolantRes.position.set(0.62, 0.76, 1.85);
+  bayPart('vehicle.engine.coolant_reservoir', coolantRes, [0.7, 0.35, 0.9]);
 
   const battery = new THREE.Mesh(rounded(0.3, 0.18, 0.22, 0.03), M.dark());
   battery.position.set(0.55, 0.66, 1.0);
-  battery.userData.componentId = 'vehicle.engine.battery';
-  car.add(battery);
+  bayPart('vehicle.engine.battery', battery, [0.8, 0.45, -0.4]);
+
+  const alternator = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 14), M.chrome());
+  alternator.position.set(0.55, 0.8, 1.25);
+  bayPart('vehicle.engine.alternator', alternator, [0.9, 0.25, -0.2]);
+
+  const distributor = new THREE.Mesh(rounded(0.12, 0.1, 0.12, 0.03), M.dark());
+  distributor.position.set(-0.18, 0.8, 1.3);
+  bayPart('vehicle.engine.distributor', distributor, [-0.2, 0.75, -0.5]);
+
+  const oilPan = new THREE.Mesh(rounded(0.8, 0.14, 0.7, 0.03), M.engine());
+  oilPan.position.set(0, 0.44, 1.55);
+  bayPart('vehicle.engine.oil_pan', oilPan, [0, -0.4, 0]);
+
+  const exhaustManifold = new THREE.Mesh(rounded(0.6, 0.16, 0.14, 0.04), new THREE.MeshStandardMaterial({ color: 0x4a4a48, metalness: 0.5, roughness: 0.7 }));
+  exhaustManifold.position.set(0, 0.66, 1.18);
+  bayPart('vehicle.engine.exhaust_manifold', exhaustManifold, [0, 0.1, -0.7]);
+
+  const transmission = new THREE.Mesh(rounded(0.38, 0.34, 0.55, 0.05), M.engine());
+  transmission.position.set(-0.55, 0.62, 1.5);
+  bayPart('vehicle.engine.transmission', transmission, [-0.9, -0.1, 0]);
 
   // Radiator fan — spins while the engine-start simulation runs.
   const engineFan = new THREE.Group();
@@ -408,6 +460,7 @@ export function buildCar() {
     clusterMat,
     headUnitMat,
     domeMat,
-    domePoint
+    domePoint,
+    explodable
   };
 }

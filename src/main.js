@@ -108,7 +108,7 @@ function view(name) {
 }
 
 // ---------- State & actions ----------
-const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true, engine: false, gear: false, handbrake: false, dome: false, headunit: false, ac: false };
+const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true, engine: false, gear: false, handbrake: false, dome: false, headunit: false, ac: false, explode: false };
 
 // Timers and interior dampers
 let steerTime = 0;
@@ -116,6 +116,16 @@ let revTime = 0;
 const steerDamper = { v: 0, t: 0, apply: (v) => { car.steerSpin.rotation.z = v; } };
 const speedoDamper = { v: 0, t: 0, apply: (v) => { car.speedoNeedle.rotation.z = v; } };
 const tachDamper = { v: 0, t: 0, apply: (v) => { car.tachNeedle.rotation.z = v; } };
+// Exploded view: one scalar 0..1 spreads every bay part along its offset.
+const explodeDamper = {
+  v: 0,
+  t: 0,
+  apply: (v) => {
+    for (const p of car.explodable) {
+      p.mesh.position.copy(p.base).addScaledVector(p.off, v * 0.8);
+    }
+  }
+};
 
 function setDoors(open) {
   state.doors = open;
@@ -146,6 +156,10 @@ function setEngine(on) {
   state.engine = on;
   if (!on) revTime = 0;
 }
+function setExplode(on) {
+  state.explode = on;
+  explodeDamper.t = on ? 1 : 0;
+}
 function resetAll() {
   setDoors(false);
   setWindows(false);
@@ -154,6 +168,7 @@ function resetAll() {
   setWheels(false);
   setLights(true);
   setEngine(false);
+  setExplode(false);
   state.gear = false;
   state.handbrake = false;
   state.dome = false;
@@ -235,6 +250,7 @@ function labelFor(action) {
     case 'wheels': return state.wheels ? 'Install wheels' : 'Remove wheels';
     case 'lights': return state.lights ? 'Lights off' : 'Lights on';
     case 'engine': return state.engine ? 'Stop engine' : 'Start engine';
+    case 'explode': return state.explode ? 'Re-assemble engine' : 'Explode engine bay';
     case 'steer': return 'Turn steering wheel';
     case 'gear': return state.gear ? 'Shift to neutral' : 'Shift gear';
     case 'handbrake': return state.handbrake ? 'Release handbrake' : 'Pull handbrake';
@@ -262,6 +278,7 @@ function runAction(action) {
   else if (action === 'wheels') setWheels(!state.wheels);
   else if (action === 'lights') setLights(!state.lights);
   else if (action === 'engine') setEngine(!state.engine);
+  else if (action === 'explode') setExplode(!state.explode);
   else if (action === 'gear') {
     state.gear = !state.gear;
     car.gearDamper.t = state.gear ? -0.5 : 0;
@@ -388,6 +405,8 @@ renderer.setAnimationLoop(() => {
   } else {
     car.engineBlock.position.y = car.engineBaseY;
   }
+
+  damp(explodeDamper, dt);
 
   // Steering wheel turn-and-center animation
   if (steerTime > 0) {

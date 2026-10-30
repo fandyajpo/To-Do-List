@@ -124,7 +124,74 @@ export const COMPONENTS = {
   'vehicle.engine.battery': {
     name: 'Battery',
     category: 'Electrical',
-    description: '12V battery feeding the main fuse box and starter circuit.'
+    description: '12V battery feeding the main fuse box and starter circuit.',
+    action: 'explode'
+  },
+  'vehicle.engine.intake_manifold': {
+    name: 'Intake Manifold',
+    category: 'Intake',
+    description: 'Manifold delivering air to the cylinder head. On the D16, it faces the radiator side.',
+    action: 'explode'
+  },
+  'vehicle.engine.throttle_body': {
+    name: 'Throttle Body',
+    category: 'Intake',
+    description: 'Butterfly valve between the intake pipe and manifold; the cable-driven D16 unit.',
+    action: 'explode'
+  },
+  'vehicle.engine.air_filter': {
+    name: 'Air Filter Box',
+    category: 'Intake',
+    description: 'Filtered air intake box feeding the throttle body.',
+    action: 'explode'
+  },
+  'vehicle.engine.fuel_rail': {
+    name: 'Fuel Rail & Injectors',
+    category: 'Fuel',
+    description: 'Delivers pressurized fuel to the four injectors.',
+    action: 'explode'
+  },
+  'vehicle.engine.radiator_hose': {
+    name: 'Radiator Upper Hose',
+    category: 'Cooling',
+    description: 'Carries hot coolant from the head to the radiator inlet.',
+    action: 'explode'
+  },
+  'vehicle.engine.coolant_reservoir': {
+    name: 'Coolant Reservoir',
+    category: 'Cooling',
+    description: 'Overflow/expansion reservoir for the cooling loop.',
+    action: 'explode'
+  },
+  'vehicle.engine.alternator': {
+    name: 'Alternator',
+    category: 'Electrical',
+    description: 'Belt-driven generator charging the battery and running the electrics.',
+    action: 'explode'
+  },
+  'vehicle.engine.distributor': {
+    name: 'Distributor',
+    category: 'Ignition',
+    description: 'Routes spark from the coil to the spark plugs in firing order (OBD-I style).',
+    action: 'explode'
+  },
+  'vehicle.engine.oil_pan': {
+    name: 'Oil Pan',
+    category: 'Lubrication',
+    description: 'Sump holding engine oil, pick-up below.',
+    action: 'explode'
+  },
+  'vehicle.engine.exhaust_manifold': {
+    name: 'Exhaust Manifold',
+    category: 'Exhaust',
+    description: '4-into-1 collector on the firewall side, feeding the downpipe.',
+    action: 'explode'
+  },
+  'vehicle.engine.transmission': {
+    name: 'Transmission',
+    category: 'Drivetrain',
+    description: 'Five-speed manual gearbox housing on the driver side of the bay (placeholder).',
+    action: 'explode'
   },
   'vehicle.interior.dashboard': {
     name: 'Dashboard',
