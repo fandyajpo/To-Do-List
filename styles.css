@@ -120,6 +120,17 @@ button.primary {
   text-align: center;
 }
 
+#loading:not([hidden]) {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
 /* ---------- Toolbar ---------- */
 
 #toolbar {

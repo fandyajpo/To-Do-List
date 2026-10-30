@@ -535,6 +535,43 @@ document.querySelector('.views').addEventListener('click', (e) => {
   if (btn) view(btn.dataset.view);
 });
 
+// ---------- Exploded-view labels ----------
+// Floating name tags appear on exploded parts (lazy-created, cached by text).
+const labelTexCache = new Map();
+
+function labelTexture(text) {
+  if (labelTexCache.has(text)) return labelTexCache.get(text);
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(11, 13, 18, 0.85)';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.font = 'bold 26px -apple-system, sans-serif';
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 34, 240);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  labelTexCache.set(text, tex);
+  return tex;
+}
+
+const labelTargets = [];
+for (const p of car.explodable) {
+  if (p.mesh.userData.componentId && p.mesh.userData.componentId !== 'vehicle.engine.block') {
+    labelTargets.push({ mesh: p.mesh, id: p.mesh.userData.componentId, getExplode: () => explodeDamper.v });
+  }
+}
+for (const c of car.suspension) {
+  for (const p of c.parts) {
+    if (p.cat !== 'arms') {
+      labelTargets.push({ mesh: p.mesh, id: p.mesh.userData.componentId, getExplode: () => c.explode.v });
+    }
+  }
+}
+
 // ---------- Animation loop ----------
 const clock = new THREE.Clock();
 const cabinCenter = new THREE.Vector3(0, 1.1, -0.28);
@@ -627,6 +664,22 @@ renderer.setAnimationLoop(() => {
     renderer.setPixelRatio(renderer.getPixelRatio() - 0.5);
     slowFrames = 0;
   }
+
+  // Exploded-view labels: lazily created, visible only while exploded.
+  for (const t of labelTargets) {
+    const show = t.getExplode() > 0.4;
+    if (!t.sprite && show) {
+      t.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(lookup(t.id).name), depthTest: false, transparent: true }));
+      t.sprite.scale.set(0.9, 0.225, 1);
+      t.sprite.position.set(0, 0.3, 0);
+      t.sprite.renderOrder = 999;
+      t.mesh.add(t.sprite);
+    }
+    if (t.sprite) t.sprite.visible = show;
+  }
 });
+
+// Everything wired — reveal the scene.
+document.getElementById('loading').remove();
 
 updateToolbar();
