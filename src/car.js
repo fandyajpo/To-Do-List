@@ -75,6 +75,7 @@ export function buildCar() {
 
   const glassBand = new THREE.Mesh(rounded(1.5, 0.32, 2.24, 0.03), M.glass());
   glassBand.position.set(0, 1.12, -0.28);
+  glassBand.userData.isGlass = true;
   car.add(glassBand);
 
   const pillarGeo = rounded(0.07, 0.34, 0.08, 0.02);
@@ -88,12 +89,14 @@ export function buildCar() {
   const windshield = new THREE.Mesh(rounded(1.42, 0.05, 0.62, 0.02), M.glass());
   windshield.position.set(0, 1.1, 1.0);
   windshield.rotation.x = -0.45;
+  windshield.userData.isGlass = true;
   windshield.userData.componentId = 'vehicle.exterior.windshield';
   car.add(windshield);
 
   const rearGlass = new THREE.Mesh(rounded(1.42, 0.05, 0.55, 0.02), M.glass());
   rearGlass.position.set(0, 1.1, -1.52);
   rearGlass.rotation.x = 0.45;
+  rearGlass.userData.isGlass = true;
   rearGlass.userData.componentId = 'vehicle.exterior.rear_glass';
   car.add(rearGlass);
 
@@ -127,6 +130,7 @@ export function buildCar() {
 
     const glass = new THREE.Mesh(rounded(0.05, 0.3, len - 0.14, 0.02), M.glass());
     glass.position.set(side * 0.005, 0.47, -len / 2);
+    glass.userData.isGlass = true;
     pivot.add(glass);
 
     const handle = new THREE.Mesh(rounded(0.03, 0.05, 0.16, 0.015), M.chrome());
@@ -225,6 +229,20 @@ export function buildCar() {
   battery.userData.componentId = 'vehicle.engine.battery';
   car.add(battery);
 
+  // Radiator fan — spins while the engine-start simulation runs.
+  const engineFan = new THREE.Group();
+  engineFan.position.set(0, 0.65, 1.93);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12), M.dark());
+  hub.rotation.x = Math.PI / 2;
+  engineFan.add(hub);
+  for (let i = 0; i < 4; i++) {
+    const blade = new THREE.Mesh(rounded(0.05, 0.26, 0.02, 0.01, 2), M.dark());
+    blade.position.set(Math.sin((i * Math.PI) / 2) * 0.15, Math.cos((i * Math.PI) / 2) * 0.15, 0);
+    blade.rotation.z = -(i * Math.PI) / 2;
+    engineFan.add(blade);
+  }
+  car.add(engineFan);
+
   // ---- Interior hint: dashboard, steering wheel, seats ----
   const dash = new THREE.Mesh(rounded(1.4, 0.22, 0.35, 0.05), M.interior());
   dash.position.set(0, 0.98, 0.78);
@@ -255,6 +273,10 @@ export function buildCar() {
     doors,
     wheels,
     headMat,
-    tailMat
+    tailMat,
+    engineFan,
+    engineBlock,
+    engineBaseY: engineBlock.position.y,
+    glassBand
   };
 }

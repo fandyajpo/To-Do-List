@@ -32,7 +32,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI * 0.495;
-controls.minDistance = 2.5;
+controls.minDistance = 0.2;
 controls.maxDistance = 18;
 
 // ---------- Lights ----------
@@ -86,7 +86,10 @@ const PRESETS = {
   rear: { pos: [0, 1.6, -8.2], target: [0, 0.8, 0] },
   side: { pos: [8.5, 1.3, 0], target: [0, 0.8, 0] },
   top: { pos: [0.01, 11, 0.01], target: [0, 0, 0] },
-  engine: { pos: [2.6, 2.6, 4.4], target: [0, 0.85, 1.5] }
+  engine: { pos: [2.6, 2.6, 4.4], target: [0, 0.85, 1.5] },
+  driver: { pos: [0.38, 1.08, 0.55], target: [0.1, 0.95, -0.3] },
+  dash: { pos: [0, 1.05, 0.35], target: [0, 0.98, 0.78] },
+  rearseat: { pos: [0, 1.12, -1.0], target: [0, 1.0, 0.5] }
 };
 
 controls.addEventListener('start', () => { camLerp = false; });
@@ -105,7 +108,7 @@ function view(name) {
 }
 
 // ---------- State & actions ----------
-const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true };
+const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true, engine: false };
 
 function setDoors(open) {
   state.doors = open;
@@ -132,6 +135,9 @@ function setLights(on) {
   car.headMat.emissiveIntensity = on ? 1.4 : 0.05;
   car.tailMat.emissiveIntensity = on ? 0.9 : 0.05;
 }
+function setEngine(on) {
+  state.engine = on;
+}
 function resetAll() {
   setDoors(false);
   setWindows(false);
@@ -139,6 +145,7 @@ function resetAll() {
   setTrunk(false);
   setWheels(false);
   setLights(true);
+  setEngine(false);
   view('front');
   updateToolbar();
 }
@@ -203,6 +210,7 @@ function labelFor(action) {
     case 'windows': return state.windows ? 'Raise windows' : 'Lower windows';
     case 'wheels': return state.wheels ? 'Install wheels' : 'Remove wheels';
     case 'lights': return state.lights ? 'Lights off' : 'Lights on';
+    case 'engine': return state.engine ? 'Stop engine' : 'Start engine';
     default: return '';
   }
 }
@@ -222,6 +230,7 @@ function runAction(action) {
   else if (action === 'windows') setWindows(!state.windows);
   else if (action === 'wheels') setWheels(!state.wheels);
   else if (action === 'lights') setLights(!state.lights);
+  else if (action === 'engine') setEngine(!state.engine);
   else if (action.startsWith('door:')) {
     const d = car.doors[+action.slice(5)];
     if (d) d.openDamper.t = Math.abs(d.openDamper.t) < 0.01 ? d.openAngle : 0;
@@ -301,6 +310,15 @@ document.querySelector('.views').addEventListener('click', (e) => {
 
 // ---------- Animation loop ----------
 const clock = new THREE.Clock();
+const cabinCenter = new THREE.Vector3(0, 1.1, -0.28);
+
+// Glass fades out when the camera is inside the cabin so interior views
+// are not obscured.
+const glassMats = [];
+car.group.traverse((o) => {
+  if (o.isMesh && o.userData.isGlass && !glassMats.includes(o.material)) glassMats.push(o.material);
+});
+let glassOpacity = 0.35;
 
 function damp(d, dt) {
   d.v = THREE.MathUtils.damp(d.v, d.t, 6, dt);
@@ -313,6 +331,19 @@ renderer.setAnimationLoop(() => {
   damp(car.trunkDamper, dt);
   for (const d of car.doors) { damp(d.openDamper, dt); damp(d.glassDamper, dt); }
   for (const w of car.wheels) damp(w.damper, dt);
+
+  // Engine start simulation — visual only, not a physical simulation.
+  if (state.engine) {
+    car.engineFan.rotation.z += dt * 10;
+    car.engineBlock.position.y = car.engineBaseY + Math.sin(clock.elapsedTime * 40) * 0.004;
+  } else {
+    car.engineBlock.position.y = car.engineBaseY;
+  }
+
+  // Glass visibility inside/outside
+  const inside = camera.position.distanceTo(cabinCenter) < 2.2;
+  glassOpacity = THREE.MathUtils.damp(glassOpacity, inside ? 0.06 : 0.35, 6, dt);
+  for (const m of glassMats) m.opacity = glassOpacity;
 
   if (camLerp) {
     camera.position.lerp(camGoal, 0.08);

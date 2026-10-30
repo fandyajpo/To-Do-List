@@ -107,12 +107,14 @@ export const COMPONENTS = {
   'vehicle.engine.block': {
     name: 'Engine Block — D16Y8',
     category: 'Engine',
-    description: '1.6L SOHC VTEC inline-four block. Placeholder representation of the D16Y8 shown in this phase.'
+    description: '1.6L SOHC VTEC inline-four block. Start/stop runs a visual idle simulation (fan spin, subtle vibration) — not a physical simulation.',
+    action: 'engine'
   },
   'vehicle.engine.valve_cover': {
     name: 'Valve Cover',
     category: 'Engine',
-    description: 'Covers the SOHC valvetrain and VTEC rocker assembly on the cylinder head.'
+    description: 'Covers the SOHC valvetrain and VTEC rocker assembly on the cylinder head.',
+    action: 'engine'
   },
   'vehicle.engine.radiator': {
     name: 'Radiator',
