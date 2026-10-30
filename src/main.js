@@ -100,7 +100,16 @@ const NODE_MAP = {
   wheel_front_left: 'vehicle.wheels.front_left',
   wheel_front_right: 'vehicle.wheels.front_right',
   wheel_rear_left: 'vehicle.wheels.rear_left',
-  wheel_rear_right: 'vehicle.wheels.rear_right'
+  wheel_rear_right: 'vehicle.wheels.rear_right',
+  honda_civic_body: 'vehicle.exterior.body',
+  honda_civic_body_body_mat_0: 'vehicle.exterior.body',
+  honda_civic_body_glass_mat_0: 'vehicle.exterior.windshield',
+  honda_civic_body_glass_02_mat_0: 'vehicle.exterior.rear_glass',
+  honda_civic_body_mirror_mat_0: 'vehicle.exterior.mirrors',
+  wheel_fl: 'vehicle.wheels.front_left',
+  wheel_fr: 'vehicle.wheels.front_right',
+  wheel_rl: 'vehicle.wheels.rear_left',
+  wheel_rr: 'vehicle.wheels.rear_right'
 };
 
 const assetBadge = document.getElementById('asset-badge');
@@ -129,7 +138,28 @@ function installAsset(gltf) {
   raycastTarget = model;
   deselect();
   assetBadge.hidden = false;
-  assetBadge.textContent = 'Real 3D asset loaded and auto-fitted. Tap parts to inspect. Animations expect named nodes (hood, trunk, door_front_left…).';
+  assetBadge.textContent = 'Real Civic asset loaded. Wheels can be pulled; doors/hood/trunk are merged in this asset and cannot open.';
+
+  // Re-bind wheel removal to the asset's own wheels
+  for (const [name, wi] of [['Wheel_FL', 0], ['Wheel_FR', 1], ['Wheel_RL', 2], ['Wheel_RR', 3]]) {
+    const node = model.getObjectByName(name);
+    if (!node) continue;
+    const baseX = node.position.x;
+    const dir = Math.sign(baseX) || 1;
+    car.wheels[wi].dir = dir;
+    car.wheels[wi].damper.apply = (v) => { node.position.x = baseX + dir * Math.abs(v); };
+  }
+
+  // The asset's body is one merged mesh: doors/hood/trunk/engine cannot
+  // animate. Disable those controls honestly instead of faking it.
+  for (const act of ['doors', 'windows', 'hood', 'trunk', 'lights', 'engine', 'explode']) {
+    const btn = toolbar.querySelector(`button[data-act="${act}"]`);
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.35';
+      btn.title = 'Not available on this asset — its body is a single merged mesh';
+    }
+  }
 }
 
 function loadAssetFile(file) {
@@ -147,6 +177,107 @@ assetBadge.textContent = 'Loading your Civic model (48 MB, one-time download)…
 new GLTFLoader().load('assets/civic-ek3.glb', installAsset, undefined, () => {
   assetBadge.hidden = true;
 });
+
+// ---------- Asset part binding ----------
+// Sketchfab-style models usually name their parts. Match names by keyword,
+// give moving parts generic hinges/slides, and route the toolbar actions to
+// the real model while it is loaded.
+let assetMode = false;
+const assetParts = { doors: [], windows: [], wheels: [], hood: null, trunk: null };
+
+function pivotAt(node, point) {
+  const pivot = new THREE.Group();
+  pivot.position.copy(point);
+  raycastTarget.add(pivot);
+  pivot.attach(node); // keeps world transform
+  return pivot;
+}
+
+function nodeCenter(node) {
+  const box = new THREE.Box3().setFromObject(node);
+  return box.getCenter(new THREE.Vector3());
+}
+
+function autoBindAsset(model) {
+  const ROLES = [
+    [/hood|bonnet/i, 'vehicle.exterior.hood', 'hood'],
+    [/trunk|boot(?!_?car)/i, 'vehicle.exterior.trunk', 'trunk'],
+    [/glass|window/i, 'vehicle.interior.window', 'window'],
+    [/door/i, 'vehicle.exterior.door', 'door'],
+    [/wheel|tyre|tire|rim/i, 'vehicle.wheels', 'wheel'],
+    [/headlight|headlamp/i, 'vehicle.exterior.headlights', null],
+    [/taillight|tail_light|rear_light/i, 'vehicle.exterior.taillights', null],
+    [/windshield|windscreen/i, 'vehicle.exterior.windshield', null],
+    [/grille|grill/i, 'vehicle.exterior.grille', null],
+    [/spoiler|wing/i, 'vehicle.exterior.spoiler', null],
+    [/mirror/i, 'vehicle.exterior.mirrors', null],
+    [/engine|motor|block/i, 'vehicle.engine.block', null],
+    [/radiator/i, 'vehicle.engine.radiator', null],
+    [/battery/i, 'vehicle.engine.battery', null],
+    [/dashboard|dash/i, 'vehicle.interior.dashboard', null],
+    [/steering/i, 'vehicle.interior.steering_wheel', null],
+    [/seat/i, 'vehicle.interior.seats', null],
+    [/muffler|exhaust/i, 'vehicle.undercarriage.exhaust', null]
+  ];
+
+  model.traverse((o) => {
+    if (!o.name) return;
+    for (const [re, id, role] of ROLES) {
+      if (re.test(o.name)) {
+        if (!o.userData.componentId) o.userData.componentId = id;
+        if (role) bindRole(role, o);
+        return;
+      }
+    }
+  });
+}
+
+function bindRole(role, node) {
+  const center = nodeCenter(node);
+  if (role === 'door') {
+    // One bound entry per door node; hinge at the door's front edge.
+    const side = center.x >= 0 ? 1 : -1;
+    const box = new THREE.Box3().setFromObject(node);
+    const hinge = new THREE.Vector3(center.x, center.y, box.max.z);
+    const pivot = pivotAt(node, hinge);
+    assetParts.doors.push({
+      pivot,
+      open: { v: 0, t: 0 },
+      angle: -1.0 * side,
+      label: node.name
+    });
+  } else if (role === 'wheel') {
+    const pivot = pivotAt(node, center);
+    assetParts.wheels.push({
+      pivot,
+      slide: { v: 0, t: 0 },
+      dir: Math.sign(center.x) || 1,
+      label: node.name
+    });
+  } else if (role === 'window') {
+    const pivot = pivotAt(node, center);
+    assetParts.windows.push({
+      pivot,
+      drop: { v: 0, t: 0 },
+      baseY: pivot.position.y,
+      label: node.name
+    });
+  } else if (role === 'hood') {
+    const box = new THREE.Box3().setFromObject(node);
+    const hinge = new THREE.Vector3(center.x, center.y, box.min.z);
+    assetParts.hood = {
+      pivot: pivotAt(node, hinge),
+      open: { v: 0, t: 0 }
+    };
+  } else if (role === 'trunk') {
+    const box = new THREE.Box3().setFromObject(node);
+    const hinge = new THREE.Vector3(center.x, center.y, box.max.z);
+    assetParts.trunk = {
+      pivot: pivotAt(node, hinge),
+      open: { v: 0, t: 0 }
+    };
+  }
+}
 
 document.getElementById('btn-asset').addEventListener('click', () => document.getElementById('asset-input').click());
 document.getElementById('asset-input').addEventListener('change', (e) => {
