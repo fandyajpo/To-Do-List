@@ -324,5 +324,11 @@ COMPONENTS['vehicle.undercarriage.fuel_tank'] = {
 };
 
 export function lookup(id) {
-  return COMPONENTS[id] || { name: id, category: 'Component', description: 'Registered vehicle component.' };
+  if (COMPONENTS[id]) return COMPONENTS[id];
+  const label = id.startsWith('node:') ? id.slice(5).replace(/_/g, ' ') : id;
+  return {
+    name: label,
+    category: 'Asset node',
+    description: 'Named part of the loaded 3D asset. Mapping it in NODE_MAP gives it registry metadata — note this name down for animation binding.'
+  };
 }

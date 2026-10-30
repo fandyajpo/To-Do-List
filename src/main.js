@@ -329,8 +329,12 @@ stage.addEventListener('pointerup', (e) => {
   const hits = ray.intersectObject(raycastTarget, true);
   for (const hit of hits) {
     let o = hit.object;
-    while (o && !o.userData.componentId) o = o.parent;
-    if (o) { select(o.userData.componentId); return; }
+    while (o && !o.userData.componentId && o !== raycastTarget) o = o.parent;
+    if (o && o.userData.componentId) { select(o.userData.componentId); return; }
+    // Unmapped asset node: show its raw name so we can map it in NODE_MAP
+    let n = hit.object;
+    while (n && !n.name) n = n.parent;
+    if (n) { select('node:' + n.name.toLowerCase().replace(/\s+/g, '_')); return; }
   }
   deselect();
 });
