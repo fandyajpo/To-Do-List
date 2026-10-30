@@ -95,7 +95,8 @@ const PRESETS = {
   engine: { pos: [2.6, 2.6, 4.4], target: [0, 0.85, 1.5] },
   driver: { pos: [0.38, 1.08, 0.55], target: [0.1, 0.95, -0.3] },
   dash: { pos: [0, 1.05, 0.35], target: [0, 0.98, 0.78] },
-  rearseat: { pos: [0, 1.12, -1.0], target: [0, 1.0, 0.5] }
+  rearseat: { pos: [0, 1.12, -1.0], target: [0, 1.0, 0.5] },
+  suspension: { pos: [2.4, 0.7, 1.8], target: [0.5, 0.45, 1.4] }
 };
 
 controls.addEventListener('start', () => { camLerp = false; });
@@ -110,6 +111,12 @@ function view(name) {
   const p = PRESETS[name];
   if (!p) return;
   if (name === 'engine') setHood(true);
+  if (name === 'suspension') {
+    // Pull the front-left wheel so the corner assembly is inspectable.
+    setWheels(false);
+    const fl = car.wheels[0];
+    fl.damper.t = fl.dir * 0.6;
+  }
   moveCamera(p.pos, p.target);
 }
 

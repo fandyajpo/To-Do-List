@@ -246,6 +246,90 @@ export function buildCar() {
   makeWheel('vehicle.wheels.rear_left', 0.8, -1.42);
   makeWheel('vehicle.wheels.rear_right', -0.8, -1.42);
 
+  // ---- Suspension, brakes & steering (placeholder double-wishbone) ----
+  function susPart(id, mesh) {
+    mesh.userData.componentId = id;
+    mesh.castShadow = true;
+    car.add(mesh);
+    return mesh;
+  }
+
+  const CORNERS = [
+    [1, 1.42, 'front_left'],
+    [-1, 1.42, 'front_right'],
+    [1, -1.42, 'rear_left'],
+    [-1, -1.42, 'rear_right']
+  ];
+
+  const coilGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.24, 12, 1, true);
+  const coilMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.6, side: THREE.DoubleSide });
+  const shockMat = new THREE.MeshStandardMaterial({ color: 0x666a70, metalness: 0.6, roughness: 0.4 });
+
+  for (const [side, z, corner] of CORNERS) {
+    const p = 'vehicle.suspension.' + corner + '.';
+
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 12), M.chrome());
+    hub.rotation.z = Math.PI / 2;
+    hub.position.set(side * 0.66, 0.31, z);
+    susPart(p + 'hub', hub);
+
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.024, 20), M.chrome());
+    disc.rotation.z = Math.PI / 2;
+    disc.position.set(side * 0.58, 0.31, z);
+    susPart(p + 'brakes', disc);
+
+    const caliper = new THREE.Mesh(rounded(0.06, 0.13, 0.1, 0.02), M.dark());
+    caliper.position.set(side * 0.58, 0.44, z);
+    susPart(p + 'brakes', caliper);
+
+    const shock = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 10), shockMat);
+    shock.position.set(side * 0.5, 0.62, z * 0.88);
+    susPart(p + 'coil', shock);
+
+    const coil = new THREE.Mesh(coilGeo, coilMat);
+    coil.position.set(side * 0.5, 0.52, z * 0.88);
+    susPart(p + 'coil', coil);
+
+    const lower = new THREE.Mesh(rounded(0.36, 0.04, 0.06, 0.015), M.dark());
+    lower.position.set(side * 0.4, 0.5, z);
+    susPart(p + 'arms', lower);
+
+    const upper = new THREE.Mesh(rounded(0.3, 0.04, 0.05, 0.015), M.dark());
+    upper.position.set(side * 0.4, 0.72, z);
+    susPart(p + 'arms', upper);
+  }
+
+  // Steering rack and tie rods
+  const rack = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.3, 10), M.chrome());
+  rack.rotation.z = Math.PI / 2;
+  rack.position.set(0, 0.45, 1.35);
+  susPart('vehicle.steering.rack', rack);
+
+  for (const side of [1, -1]) {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8), M.chrome());
+    rod.rotation.x = Math.PI / 2;
+    rod.position.set(side * 0.62, 0.45, 1.38);
+    susPart('vehicle.steering.tie_rods', rod);
+  }
+
+  // Undercarriage: floor pan, exhaust, fuel tank
+  const floorPan = new THREE.Mesh(rounded(1.5, 0.05, 2.6, 0.02), M.dark());
+  floorPan.position.set(0, 0.52, -0.2);
+  susPart('vehicle.undercarriage.floor_pan', floorPan);
+
+  const exhaustPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.8, 10), M.chrome());
+  exhaustPipe.rotation.x = Math.PI / 2;
+  exhaustPipe.position.set(0.2, 0.4, -1.3);
+  susPart('vehicle.undercarriage.exhaust', exhaustPipe);
+
+  const muffler = new THREE.Mesh(rounded(0.3, 0.14, 0.4, 0.05), M.chrome());
+  muffler.position.set(0.2, 0.4, -2.0);
+  susPart('vehicle.undercarriage.exhaust', muffler);
+
+  const fuelTank = new THREE.Mesh(rounded(0.8, 0.16, 0.5, 0.05), M.dark());
+  fuelTank.position.set(-0.2, 0.58, -1.6);
+  susPart('vehicle.undercarriage.fuel_tank', fuelTank);
+
   // ---- Engine bay (placeholder D16Y8, visible with hood open, explodable) ----
   const explodable = [];
   function bayPart(id, mesh, off) {

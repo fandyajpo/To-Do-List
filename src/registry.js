@@ -273,6 +273,56 @@ export const COMPONENTS = {
   }
 };
 
+// Suspension per-corner entries (double-wishbone placeholder)
+for (const corner of ['front_left', 'front_right', 'rear_left', 'rear_right']) {
+  const label = corner.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  COMPONENTS[`vehicle.suspension.${corner}.arms`] = {
+    name: `${label} control arms`,
+    category: 'Suspension',
+    description: 'Upper and lower control arms of the double-wishbone setup (placeholder geometry).'
+  };
+  COMPONENTS[`vehicle.suspension.${corner}.coil`] = {
+    name: `${label} coil spring & shock`,
+    category: 'Suspension',
+    description: 'Coil spring and damper assembly riding on the control arm.'
+  };
+  COMPONENTS[`vehicle.suspension.${corner}.brakes`] = {
+    name: `${label} brakes`,
+    category: 'Braking',
+    description: 'Brake disc and caliper behind the wheel. Remove the wheel to see them.'
+  };
+  COMPONENTS[`vehicle.suspension.${corner}.hub`] = {
+    name: `${label} hub`,
+    category: 'Suspension',
+    description: 'Wheel hub and bearing carrier.'
+  };
+}
+COMPONENTS['vehicle.steering.rack'] = {
+  name: 'Steering rack',
+  category: 'Steering',
+  description: 'Rack housing connecting both front steering knuckles.'
+};
+COMPONENTS['vehicle.steering.tie_rods'] = {
+  name: 'Tie rods',
+  category: 'Steering',
+  description: 'Inner and outer tie rods linking the rack to the knuckles.'
+};
+COMPONENTS['vehicle.undercarriage.floor_pan'] = {
+  name: 'Floor pan',
+  category: 'Undercarriage',
+  description: 'Main underbody floor structure between the axles.'
+};
+COMPONENTS['vehicle.undercarriage.exhaust'] = {
+  name: 'Exhaust system',
+  category: 'Undercarriage',
+  description: 'Piping and muffler running from the manifold to the rear tip.'
+};
+COMPONENTS['vehicle.undercarriage.fuel_tank'] = {
+  name: 'Fuel tank',
+  category: 'Undercarriage',
+  description: 'Rear-mounted fuel tank with in-tank pump (placeholder).'
+};
+
 export function lookup(id) {
   return COMPONENTS[id] || { name: id, category: 'Component', description: 'Registered vehicle component.' };
 }
