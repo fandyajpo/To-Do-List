@@ -7,12 +7,12 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const M = {
-  paint: () => new THREE.MeshStandardMaterial({ color: 0x2c5f9e, metalness: 0.65, roughness: 0.38 }),
+  paint: () => new THREE.MeshStandardMaterial({ color: 0x1e3cc8, metalness: 0.6, roughness: 0.35 }),
   dark: () => new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.3, roughness: 0.85 }),
   chrome: () => new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.9, roughness: 0.25 }),
   glass: () => new THREE.MeshStandardMaterial({ color: 0xa8d8f0, metalness: 0.4, roughness: 0.08, transparent: true, opacity: 0.35 }),
   tire: () => new THREE.MeshStandardMaterial({ color: 0x17191d, roughness: 0.95 }),
-  rim: () => new THREE.MeshStandardMaterial({ color: 0xcfd4dc, metalness: 0.85, roughness: 0.3 }),
+  rim: () => new THREE.MeshStandardMaterial({ color: 0x4a4f58, metalness: 0.85, roughness: 0.35 }),
   head: () => new THREE.MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xffeeaa, emissiveIntensity: 1.4, roughness: 0.2 }),
   tail: () => new THREE.MeshStandardMaterial({ color: 0x8f1414, emissive: 0xff2222, emissiveIntensity: 0.35, roughness: 0.3 }),
   interior: () => new THREE.MeshStandardMaterial({ color: 0x24262b, roughness: 0.9, metalness: 0.1 }),
@@ -59,12 +59,24 @@ export function buildCar() {
   bumperR.position.z = -2.18;
   car.add(bumperF, bumperR);
 
-  // Side skirts
+  // Side skirts + black side moldings (per reference photos)
   const skirtL = new THREE.Mesh(rounded(0.08, 0.12, 2.4, 0.03), dark);
   skirtL.position.set(0.85, 0.36, 0);
   const skirtR = skirtL.clone();
   skirtR.position.x = -0.85;
   car.add(skirtL, skirtR);
+
+  const moldingGeo = rounded(0.02, 0.06, 2.5, 0.008, 1);
+  for (const side of [1, -1]) {
+    const molding = new THREE.Mesh(moldingGeo, dark);
+    molding.position.set(side * 0.87, 0.64, 0.15);
+    car.add(molding);
+  }
+
+  // Front lip under the bumper
+  const frontLip = new THREE.Mesh(rounded(1.7, 0.05, 0.18, 0.02), dark);
+  frontLip.position.set(0, 0.3, 2.26);
+  car.add(frontLip);
 
   // ---- Greenhouse: roof, pillars, glass band ----
   const roof = new THREE.Mesh(rounded(1.5, 0.09, 2.3, 0.04), paint);
@@ -85,17 +97,17 @@ export function buildCar() {
     car.add(p);
   }
 
-  // Windshield and rear glass slabs
-  const windshield = new THREE.Mesh(rounded(1.42, 0.05, 0.62, 0.02), M.glass());
-  windshield.position.set(0, 1.1, 1.0);
-  windshield.rotation.x = -0.45;
+  // Windshield and rear glass slabs — slanted like the EK greenhouse
+  const windshield = new THREE.Mesh(rounded(1.44, 0.05, 0.72, 0.02), M.glass());
+  windshield.position.set(0, 1.11, 0.94);
+  windshield.rotation.x = -0.5;
   windshield.userData.isGlass = true;
   windshield.userData.componentId = 'vehicle.exterior.windshield';
   car.add(windshield);
 
-  const rearGlass = new THREE.Mesh(rounded(1.42, 0.05, 0.55, 0.02), M.glass());
-  rearGlass.position.set(0, 1.1, -1.52);
-  rearGlass.rotation.x = 0.45;
+  const rearGlass = new THREE.Mesh(rounded(1.4, 0.05, 0.62, 0.02), M.glass());
+  rearGlass.position.set(0, 1.11, -1.48);
+  rearGlass.rotation.x = 0.5;
   rearGlass.userData.isGlass = true;
   rearGlass.userData.componentId = 'vehicle.exterior.rear_glass';
   car.add(rearGlass);
@@ -115,6 +127,18 @@ export function buildCar() {
   const trunk = new THREE.Mesh(rounded(1.55, 0.07, 0.62, 0.03), paint);
   trunk.position.set(0, 0, -0.31);
   trunkPivot.add(selectable(trunk, 'vehicle.exterior.trunk'));
+
+  // Lip spoiler riding on the trunk lid
+  const spoilerBlade = new THREE.Mesh(rounded(1.3, 0.04, 0.16, 0.015), dark);
+  spoilerBlade.position.set(0, 0.12, -0.52);
+  spoilerBlade.userData.componentId = 'vehicle.exterior.spoiler';
+  trunkPivot.add(spoilerBlade);
+  for (const sx of [0.5, -0.5]) {
+    const upright = new THREE.Mesh(rounded(0.04, 0.09, 0.09, 0.015), dark);
+    upright.position.set(sx, 0.055, -0.5);
+    trunkPivot.add(upright);
+  }
+
   car.add(trunkPivot);
   const trunkDamper = damper(0, (v) => { trunkPivot.rotation.x = v; });
 
@@ -157,28 +181,42 @@ export function buildCar() {
     car.add(mirror);
   }
 
-  // ---- Grille, emblem, lamps ----
-  const grille = new THREE.Mesh(rounded(0.85, 0.16, 0.06, 0.02), dark);
+  // ---- Grille (body-colored surround with dark mesh), emblem, lamps ----
+  const grille = new THREE.Mesh(rounded(0.9, 0.18, 0.06, 0.02), paint);
   grille.position.set(0, 0.74, 2.14);
   grille.userData.componentId = 'vehicle.exterior.grille';
   car.add(grille);
 
+  const grilleMesh = new THREE.Mesh(rounded(0.76, 0.09, 0.07, 0.015), dark);
+  grilleMesh.position.set(0, 0.73, 2.15);
+  grilleMesh.userData.componentId = 'vehicle.exterior.grille';
+  car.add(grilleMesh);
+
   const emblem = new THREE.Mesh(rounded(0.09, 0.09, 0.03, 0.015), M.chrome());
-  emblem.position.set(0, 0.74, 2.18);
+  emblem.position.set(0, 0.74, 2.2);
   car.add(emblem);
 
   const headMat = M.head();
   for (const side of [1, -1]) {
-    const lamp = new THREE.Mesh(rounded(0.34, 0.14, 0.08, 0.03), headMat);
-    lamp.position.set(side * 0.56, 0.76, 2.14);
+    const lamp = new THREE.Mesh(rounded(0.44, 0.16, 0.08, 0.03), headMat);
+    lamp.position.set(side * 0.53, 0.76, 2.14);
     lamp.userData.componentId = 'vehicle.exterior.headlights';
     car.add(lamp);
   }
 
+  // Amber corner turn signals beside the headlamps
+  const signalMat = new THREE.MeshStandardMaterial({ color: 0xff9500, emissive: 0xff9500, emissiveIntensity: 0.4, roughness: 0.3 });
+  for (const side of [1, -1]) {
+    const signal = new THREE.Mesh(rounded(0.09, 0.1, 0.08, 0.02), signalMat);
+    signal.position.set(side * 0.8, 0.76, 2.12);
+    signal.userData.componentId = 'vehicle.exterior.headlights';
+    car.add(signal);
+  }
+
   const tailMat = M.tail();
   for (const side of [1, -1]) {
-    const lamp = new THREE.Mesh(rounded(0.4, 0.14, 0.08, 0.03), tailMat);
-    lamp.position.set(side * 0.56, 0.78, -2.14);
+    const lamp = new THREE.Mesh(rounded(0.42, 0.2, 0.08, 0.03), tailMat);
+    lamp.position.set(side * 0.53, 0.76, -2.14);
     lamp.userData.componentId = 'vehicle.exterior.taillights';
     car.add(lamp);
   }

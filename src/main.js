@@ -2,6 +2,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCar } from './car.js';
 import { lookup } from './registry.js';
 
@@ -18,6 +19,7 @@ try {
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 stage.appendChild(renderer.domElement);
 
 // ---------- Scene ----------
@@ -36,9 +38,13 @@ controls.minDistance = 0.2;
 controls.maxDistance = 18;
 
 // ---------- Lights ----------
-scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20242c, 0.9));
+// Room environment gives the paint real reflections.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const key = new THREE.DirectionalLight(0xffffff, 1.6);
+scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x20242c, 0.35));
+
+const key = new THREE.DirectionalLight(0xffffff, 1.3);
 key.position.set(5, 8, 4);
 key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024);
