@@ -72,6 +72,8 @@ scene.add(ground);
 const car = buildCar();
 scene.add(car.group);
 let raycastTarget = car.group;
+// Original placeholder wheel bindings, so HD-off can restore them.
+const wheelDefaults = car.wheels.map((w) => ({ apply: w.damper.apply, dir: w.dir }));
 
 // ---------- Real 3D asset pipeline ----------
 // Provide assets/civic-ek3.glb (or load any .glb via the toolbar button)
@@ -181,11 +183,44 @@ function loadAssetFile(file) {
   });
 }
 
-// If a real asset ships with the repo, use it instead of the placeholder.
-assetBadge.hidden = false;
-assetBadge.textContent = 'Loading your Civic model (48 MB, one-time download)…';
-new GLTFLoader().load('assets/civic-ek3.glb', installAsset, undefined, () => {
+// If HD mode is on (default), load the real asset in the background.
+let hdMode = localStorage.getItem('hdMode') !== 'off';
+let assetLoading = false;
+const btnHd = document.getElementById('btn-hd');
+function updateHdButton() { btnHd.textContent = hdMode ? 'HD: on' : 'HD: off'; }
+updateHdButton();
+
+function requestAsset() {
+  if (assetLoading) return;
+  assetLoading = true;
+  assetBadge.hidden = false;
+  assetBadge.textContent = 'Loading your Civic model…';
+  new GLTFLoader().load('assets/civic-ek3.glb',
+    (gltf) => { assetLoading = false; installAsset(gltf); },
+    (xhr) => { if (xhr.total) assetBadge.textContent = 'Loading your Civic model… ' + Math.round((xhr.loaded / xhr.total) * 100) + '%'; },
+    () => { assetLoading = false; assetBadge.hidden = true; });
+}
+
+function restorePlaceholder() {
+  scene.remove(raycastTarget);
+  scene.add(car.group);
+  raycastTarget = car.group;
+  assetLoaded = false;
+  assetModel = null;
+  deselect();
   assetBadge.hidden = true;
+  for (let i = 0; i < 4; i++) {
+    car.wheels[i].damper.apply = wheelDefaults[i].apply;
+    car.wheels[i].dir = wheelDefaults[i].dir;
+  }
+}
+
+btnHd.addEventListener('click', () => {
+  hdMode = !hdMode;
+  localStorage.setItem('hdMode', hdMode ? 'on' : 'off');
+  updateHdButton();
+  if (!hdMode) restorePlaceholder();
+  else requestAsset();
 });
 
 // ---------- Asset part binding ----------
