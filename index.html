@@ -2,36 +2,81 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Honda Civic Ferio EK3 — Interactive 3D Experience</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app">
-    <header class="app-header">
-      <h1>My Day</h1>
-      <p class="date" id="today"></p>
-    </header>
+  <header class="topbar">
+    <div class="brand">CIVIC <span>FERIO EK3</span></div>
+    <nav class="views" aria-label="Camera views">
+      <button data-view="front">Front</button>
+      <button data-view="side">Side</button>
+      <button data-view="rear">Rear</button>
+      <button data-view="top">Top</button>
+      <button data-view="engine">Engine</button>
+    </nav>
+  </header>
 
-    <form id="add-form" class="add-form">
-      <input
-        type="text"
-        id="new-task"
-        placeholder="What needs doing?"
-        autocomplete="off"
-        maxlength="120"
-      >
-      <button type="submit" aria-label="Add task">+</button>
-    </form>
+  <main id="stage" aria-label="Interactive 3D vehicle viewer">
+    <div id="hero">
+      <h1>Honda Civic Ferio <em>EK3</em></h1>
+      <p>Interactive 3D pixel-art workshop — open the doors, drop the windows, pull a wheel, look inside the engine bay.</p>
+    </div>
+    <div id="hint">Drag to orbit · pinch or scroll to zoom · tap a part</div>
+    <div id="webgl-error" hidden>This device could not start WebGL, so the 3D viewer is unavailable.</div>
 
-    <ul id="task-list" class="task-list"></ul>
+    <aside id="panel" aria-live="polite">
+      <button id="panel-close" aria-label="Close panel">×</button>
+      <h2 id="panel-name"></h2>
+      <p id="panel-cat" class="cat"></p>
+      <p id="panel-desc"></p>
+      <button id="panel-action" class="primary" hidden></button>
+    </aside>
 
-    <footer class="app-footer">
-      <span id="count"></span>
-      <button id="clear-done" class="ghost">Clear done</button>
-    </footer>
+    <div id="toolbar" role="toolbar" aria-label="Vehicle controls">
+      <button data-act="doors">Doors</button>
+      <button data-act="windows">Windows</button>
+      <button data-act="hood">Hood</button>
+      <button data-act="trunk">Trunk</button>
+      <button data-act="wheels">Wheels</button>
+      <button data-act="lights">Lights</button>
+      <button data-act="reset">Reset</button>
+    </div>
   </main>
 
-  <script src="app.js"></script>
+  <section id="specs">
+    <h2>Specifications</h2>
+    <ul class="spec-grid">
+      <li><strong>Generation</strong><span>EK (6th gen, 1996–2000)</span></li>
+      <li><strong>Body</strong><span>4-door sedan (Ferio)</span></li>
+      <li><strong>Engine — JDM EK3</strong><span>D15B 3-stage VTEC</span></li>
+      <li><strong>Engine — shown here</strong><span>D16Y8 SOHC VTEC (configurable)</span></li>
+      <li><strong>Suspension</strong><span>Double wishbone, front &amp; rear</span></li>
+      <li><strong>Brakes</strong><span>Front discs · rear drums/discs by trim</span></li>
+      <li><strong>Dimensions (approx.)</strong><span>4,445 × 1,695 × 1,360 mm</span></li>
+    </ul>
+    <p class="note">
+      Phase 1 build: the vehicle is a clearly-labelled <strong>procedural placeholder</strong> with
+      recognizable EK3 proportions — not a verified mechanical model. Doors, hood, trunk, windows,
+      wheels and lighting are interactive; engine, suspension and interior detail are planned for
+      later phases with authored GLB assets.
+    </p>
+  </section>
+
+  <footer>
+    <p>Built with Three.js — no build step, runs from static files.</p>
+    <p>Placeholder geometry pending Blender-authored or licensed EK3 assets. Specifications to be verified against service documentation.</p>
+  </footer>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
