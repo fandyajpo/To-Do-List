@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCar } from './car.js';
-import { lookup } from './registry.js';
+import { lookup, COMPONENTS } from './registry.js';
 
 const stage = document.getElementById('stage');
 
@@ -345,6 +345,8 @@ function showPanel(id) {
   panelAction.hidden = !action;
   if (action) panelAction.textContent = labelFor(action);
   panelAction.dataset.action = action || '';
+  if (isolatedId && isolatedId !== id) setIsolate(false);
+  panelIsolate.hidden = !currentId;
   panel.classList.add('open');
 }
 
@@ -355,12 +357,105 @@ function select(id) {
 
 function deselect() {
   currentId = null;
+  if (isolatedId) setIsolate(false);
   clearHighlight();
   panel.classList.remove('open');
 }
 
 panelAction.addEventListener('click', () => runAction(panelAction.dataset.action));
 document.getElementById('panel-close').addEventListener('click', deselect);
+
+// ---------- Component search ----------
+const searchModal = document.getElementById('search-modal');
+const searchInput = document.getElementById('search-input');
+const searchList = document.getElementById('search-list');
+
+function openSearch() {
+  searchModal.hidden = false;
+  searchInput.value = '';
+  renderSearch('');
+  searchInput.focus();
+}
+function closeSearch() {
+  searchModal.hidden = true;
+}
+
+function renderSearch(q) {
+  searchList.innerHTML = '';
+  for (const [id, info] of Object.entries(COMPONENTS)) {
+    const hay = (info.name + ' ' + info.category + ' ' + id).toLowerCase();
+    if (q && !hay.includes(q)) continue;
+    const li = document.createElement('li');
+    li.textContent = info.name + ' — ' + info.category;
+    li.addEventListener('click', () => {
+      closeSearch();
+      select(id);
+    });
+    searchList.appendChild(li);
+  }
+  if (!searchList.children.length) {
+    const li = document.createElement('li');
+    li.textContent = 'No matching components';
+    searchList.appendChild(li);
+  }
+}
+
+document.getElementById('btn-search').addEventListener('click', openSearch);
+document.getElementById('search-close').addEventListener('click', closeSearch);
+searchModal.addEventListener('click', (e) => { if (e.target === searchModal) closeSearch(); });
+searchInput.addEventListener('input', () => renderSearch(searchInput.value.trim().toLowerCase()));
+
+// ---------- Component isolation ----------
+let isolatedId = null;
+let hiddenMeshes = [];
+
+function meshComponentId(mesh) {
+  let o = mesh;
+  while (o && !o.userData.componentId) o = o.parent;
+  return o ? o.userData.componentId : null;
+}
+
+function setIsolate(on) {
+  if (on && currentId) {
+    isolatedId = currentId;
+    hiddenMeshes = [];
+    car.group.traverse((o) => {
+      if (o.isMesh && o.visible && meshComponentId(o) !== isolatedId) {
+        o.visible = false;
+        hiddenMeshes.push(o);
+      }
+    });
+    panelIsolate.textContent = 'Show all';
+  } else {
+    for (const m of hiddenMeshes) m.visible = true;
+    hiddenMeshes = [];
+    isolatedId = null;
+    panelIsolate.textContent = 'Isolate';
+  }
+  panelIsolate.hidden = !currentId;
+}
+const panelIsolate = document.getElementById('panel-isolate');
+panelIsolate.addEventListener('click', () => setIsolate(!isolatedId));
+
+// ---------- Keyboard shortcuts (desktop) ----------
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  const viewKeys = { '1': 'front', '2': 'side', '3': 'rear', '4': 'top', '5': 'engine', '6': 'suspension' };
+  if (viewKeys[k]) view(viewKeys[k]);
+  else if (k === 'd') runAction('doors');
+  else if (k === 'h') runAction('hood');
+  else if (k === 't') runAction('trunk');
+  else if (k === 'w') runAction('wheels');
+  else if (k === 'l') runAction('lights');
+  else if (k === 'e') runAction('engine');
+  else if (k === 'x') runAction('explode');
+  else if (k === 'r') resetAll();
+  else if (k === 'escape') {
+    if (!searchModal.hidden) closeSearch();
+    else deselect();
+  }
+});
 
 // ---------- Toolbar & views ----------
 const toolbar = document.getElementById('toolbar');

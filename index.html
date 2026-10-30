@@ -8,7 +8,10 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">CIVIC <span>FERIO EK3</span></div>
+    <div class="topbar-left">
+      <div class="brand">CIVIC <span>FERIO EK3</span></div>
+      <button id="btn-search" class="search-btn" aria-label="Search components">⌕</button>
+    </div>
     <nav class="views" aria-label="Camera views">
       <button data-view="front">Front</button>
       <button data-view="side">Side</button>
@@ -35,7 +38,10 @@
       <h2 id="panel-name"></h2>
       <p id="panel-cat" class="cat"></p>
       <p id="panel-desc"></p>
-      <button id="panel-action" class="primary" hidden></button>
+      <div class="panel-actions">
+        <button id="panel-action" class="primary" hidden></button>
+        <button id="panel-isolate" hidden>Isolate</button>
+      </div>
     </aside>
 
     <div id="toolbar" role="toolbar" aria-label="Vehicle controls">
@@ -74,6 +80,14 @@
     <p>Built with Three.js — no build step, runs from static files.</p>
     <p>Placeholder geometry pending Blender-authored or licensed EK3 assets. Specifications to be verified against service documentation.</p>
   </footer>
+
+  <div id="search-modal" hidden>
+    <div class="search-box">
+      <input id="search-input" type="search" placeholder="Search components…" autocomplete="off">
+      <button id="search-close" aria-label="Close search">×</button>
+    </div>
+    <ul id="search-list" role="listbox"></ul>
+  </div>
 
   <script type="importmap">
   {
