@@ -243,18 +243,116 @@ export function buildCar() {
   }
   car.add(engineFan);
 
-  // ---- Interior hint: dashboard, steering wheel, seats ----
+  // ---- Interior: dashboard, cluster, steering, console, seats ----
   const dash = new THREE.Mesh(rounded(1.4, 0.22, 0.35, 0.05), M.interior());
   dash.position.set(0, 0.98, 0.78);
   dash.userData.componentId = 'vehicle.interior.dashboard';
   car.add(dash);
 
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.03, 10, 24), M.interior());
-  wheel.position.set(0.38, 1.0, 0.6);
-  wheel.rotation.x = -0.9;
-  wheel.userData.componentId = 'vehicle.interior.steering_wheel';
-  car.add(wheel);
+  // Instrument cluster with gauge faces and needles
+  const clusterMat = new THREE.MeshStandardMaterial({ color: 0x0d0f13, emissive: 0x66ccff, emissiveIntensity: 0.12, roughness: 0.4 });
+  const cluster = new THREE.Mesh(rounded(0.3, 0.14, 0.05, 0.02), M.dark());
+  cluster.position.set(0.38, 1.13, 0.86);
+  cluster.userData.componentId = 'vehicle.interior.instrument_cluster';
+  car.add(cluster);
 
+  function makeGauge(x) {
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 20), clusterMat);
+    face.rotation.x = Math.PI / 2;
+    face.position.set(x, 1.13, 0.885);
+    car.add(face);
+
+    const pivot = new THREE.Group();
+    pivot.position.set(x, 1.13, 0.895);
+    const needle = new THREE.Mesh(rounded(0.008, 0.06, 0.004, 0.002, 1), new THREE.MeshStandardMaterial({ color: 0xff3322, emissive: 0xff3322, emissiveIntensity: 0.6 }));
+    needle.position.y = 0.028;
+    pivot.add(needle);
+    car.add(pivot);
+    return pivot;
+  }
+  const speedoNeedle = makeGauge(0.345);
+  const tachNeedle = makeGauge(0.415);
+
+  // Steering wheel on a tilted column, with a rotatable inner group
+  const steerPivot = new THREE.Group();
+  steerPivot.position.set(0.38, 1.0, 0.6);
+  steerPivot.rotation.x = -0.9;
+  car.add(steerPivot);
+
+  const steerSpin = new THREE.Group();
+  steerPivot.add(steerSpin);
+
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.025, 10, 28), M.interior());
+  steerSpin.add(selectable(rim, 'vehicle.interior.steering_wheel'));
+
+  for (let i = 0; i < 3; i++) {
+    const spoke = new THREE.Mesh(rounded(0.03, 0.13, 0.02, 0.01, 1), M.interior());
+    spoke.position.set(Math.sin((i * Math.PI * 2) / 3) * 0.07, Math.cos((i * Math.PI * 2) / 3) * 0.07, 0);
+    spoke.rotation.z = -(i * Math.PI * 2) / 3;
+    spoke.userData.componentId = 'vehicle.interior.steering_wheel';
+    steerSpin.add(spoke);
+  }
+
+  const wheelHub = new THREE.Mesh(rounded(0.05, 0.05, 0.03, 0.015, 1), M.dark());
+  steerSpin.add(wheelHub);
+
+  // Center console, gear lever, handbrake
+  const centerConsole = new THREE.Mesh(rounded(0.3, 0.24, 0.62, 0.04), M.interior());
+  centerConsole.position.set(0, 0.86, 0.15);
+  centerConsole.userData.componentId = 'vehicle.interior.console';
+  car.add(centerConsole);
+
+  const gearPivot = new THREE.Group();
+  gearPivot.position.set(0, 0.99, 0.32);
+  const gearBoot = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 0.05, 12), M.dark());
+  gearBoot.position.y = 0.02;
+  const gearShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), M.chrome());
+  gearShaft.position.y = 0.09;
+  const gearKnob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), M.dark());
+  gearKnob.position.y = 0.17;
+  gearKnob.userData.componentId = 'vehicle.interior.gear_selector';
+  gearPivot.add(gearBoot, gearShaft, gearKnob);
+  car.add(gearPivot);
+  const gearDamper = damper(0, (v) => { gearPivot.rotation.x = v; });
+
+  const brakePivot = new THREE.Group();
+  brakePivot.position.set(0.22, 0.93, -0.02);
+  const brakeLever = new THREE.Mesh(rounded(0.04, 0.2, 0.05, 0.02), M.dark());
+  brakeLever.position.y = 0.1;
+  brakeLever.userData.componentId = 'vehicle.interior.handbrake';
+  brakePivot.add(brakeLever);
+  car.add(brakePivot);
+  const brakeDamper = damper(0, (v) => { brakePivot.rotation.x = v; });
+
+  // Pedals (clutch / brake / accelerator)
+  function makePedal(id, x) {
+    const pad = new THREE.Mesh(rounded(0.09, 0.16, 0.03, 0.012, 1), M.dark());
+    pad.position.set(x, 0.62, 0.92);
+    pad.rotation.x = 0.35;
+    pad.userData.componentId = id;
+    car.add(pad);
+    return pad;
+  }
+  makePedal('vehicle.interior.pedals.clutch', -0.06);
+  makePedal('vehicle.interior.pedals.brake', 0.16);
+  const accelPedal = makePedal('vehicle.interior.pedals.accelerator', 0.38);
+  const accelDamper = damper(0, (v) => { accelPedal.rotation.x = 0.35 + v; });
+
+  // Head unit and AC panel
+  const headUnitMat = new THREE.MeshStandardMaterial({ color: 0x0e1116, emissive: 0x22ff88, emissiveIntensity: 0.06, roughness: 0.3 });
+  const headUnit = new THREE.Mesh(rounded(0.26, 0.1, 0.04, 0.015, 1), headUnitMat);
+  headUnit.position.set(0, 1.06, 0.9);
+  headUnit.rotation.x = -0.15;
+  headUnit.userData.componentId = 'vehicle.interior.head_unit';
+  car.add(headUnit);
+
+  const acPanel = new THREE.Mesh(rounded(0.26, 0.08, 0.04, 0.015, 1), M.dark());
+  acPanel.position.set(0, 0.94, 0.9);
+  acPanel.rotation.x = -0.15;
+  acPanel.userData.componentId = 'vehicle.interior.ac_controls';
+  car.add(acPanel);
+
+  // Front seats, rear bench, carpet
   for (const x of [0.38, -0.38]) {
     const cushion = new THREE.Mesh(rounded(0.45, 0.14, 0.5, 0.05), M.interior());
     cushion.position.set(x, 0.78, 0.1);
@@ -265,6 +363,29 @@ export function buildCar() {
     backrest.userData.componentId = 'vehicle.interior.seats';
     car.add(cushion, backrest);
   }
+
+  const rearCushion = new THREE.Mesh(rounded(1.25, 0.14, 0.5, 0.05), M.interior());
+  rearCushion.position.set(0, 0.78, -0.95);
+  const rearBackrest = new THREE.Mesh(rounded(1.25, 0.5, 0.12, 0.05), M.interior());
+  rearBackrest.position.set(0, 1.0, -1.25);
+  rearCushion.userData.componentId = 'vehicle.interior.rear_bench';
+  rearBackrest.userData.componentId = 'vehicle.interior.rear_bench';
+  car.add(rearCushion, rearBackrest);
+
+  const carpet = new THREE.Mesh(rounded(1.3, 0.02, 2.0, 0.008, 1), M.dark());
+  carpet.position.set(0, 0.56, -0.1);
+  car.add(carpet);
+
+  // Dome light with its own point light
+  const domeMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, emissive: 0xfff4d6, emissiveIntensity: 0.05, roughness: 0.6 });
+  const domeLamp = new THREE.Mesh(rounded(0.14, 0.03, 0.07, 0.012, 1), domeMat);
+  domeLamp.position.set(0, 1.275, -0.28);
+  domeLamp.userData.componentId = 'vehicle.interior.dome_light';
+  car.add(domeLamp);
+
+  const domePoint = new THREE.PointLight(0xfff4d6, 0, 3);
+  domePoint.position.set(0, 1.15, -0.28);
+  car.add(domePoint);
 
   return {
     group: car,
@@ -277,6 +398,16 @@ export function buildCar() {
     engineFan,
     engineBlock,
     engineBaseY: engineBlock.position.y,
-    glassBand
+    glassBand,
+    steerSpin,
+    speedoNeedle,
+    tachNeedle,
+    gearDamper,
+    brakeDamper,
+    accelDamper,
+    clusterMat,
+    headUnitMat,
+    domeMat,
+    domePoint
   };
 }

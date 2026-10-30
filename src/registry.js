@@ -131,15 +131,78 @@ export const COMPONENTS = {
     category: 'Interior',
     description: 'Instrument panel with the gauge cluster above the steering column.'
   },
+  'vehicle.interior.instrument_cluster': {
+    name: 'Instrument Cluster',
+    category: 'Interior',
+    description: 'Speedometer and tachometer with illumination. The needles animate with the engine-start simulation.',
+    action: 'engine'
+  },
   'vehicle.interior.steering_wheel': {
     name: 'Steering Wheel',
     category: 'Interior',
-    description: 'Three-spoke wheel on the steering column. Rotation interaction planned for a later phase.'
+    description: 'Three-spoke wheel on the steering column. Tap the action to see it turn and self-center (visual simulation).',
+    action: 'steer'
+  },
+  'vehicle.interior.console': {
+    name: 'Center Console',
+    category: 'Interior',
+    description: 'Console between the front seats housing the gear lever and handbrake.'
+  },
+  'vehicle.interior.gear_selector': {
+    name: 'Gear Selector',
+    category: 'Interior',
+    description: 'Manual shifter with boot and knob. Tap the action to shift.',
+    action: 'gear'
+  },
+  'vehicle.interior.handbrake': {
+    name: 'Handbrake',
+    category: 'Interior',
+    description: 'Lever-style parking brake between the seats.',
+    action: 'handbrake'
+  },
+  'vehicle.interior.pedals.accelerator': {
+    name: 'Accelerator Pedal',
+    category: 'Interior',
+    description: 'Throttle pedal. With the engine running, press it for a rev.',
+    action: 'rev'
+  },
+  'vehicle.interior.pedals.brake': {
+    name: 'Brake Pedal',
+    category: 'Interior',
+    description: 'Service brake pedal feeding the master cylinder.'
+  },
+  'vehicle.interior.pedals.clutch': {
+    name: 'Clutch Pedal',
+    category: 'Interior',
+    description: 'Clutch pedal for the manual gearbox.'
+  },
+  'vehicle.interior.head_unit': {
+    name: 'Head Unit',
+    category: 'Interior',
+    description: 'Audio head unit with display. Toggle its screen on and off.',
+    action: 'headunit'
+  },
+  'vehicle.interior.ac_controls': {
+    name: 'AC Control Panel',
+    category: 'Interior',
+    description: 'Climate controls: fan speed, temperature and airflow mode.',
+    action: 'ac'
+  },
+  'vehicle.interior.dome_light': {
+    name: 'Dome Light',
+    category: 'Lighting',
+    description: 'Interior roof light. Toggle it on to illuminate the cabin.',
+    action: 'dome'
   },
   'vehicle.interior.seats': {
-    name: 'Seats',
+    name: 'Front Seats',
     category: 'Interior',
-    description: 'Front buckets and rear bench. Cabin camera modes planned for a later phase.'
+    description: 'Driver and passenger buckets with headrests.'
+  },
+  'vehicle.interior.rear_bench': {
+    name: 'Rear Bench',
+    category: 'Interior',
+    description: 'Rear seat cushion and backrest.'
   }
 };
 

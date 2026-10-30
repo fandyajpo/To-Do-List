@@ -108,7 +108,14 @@ function view(name) {
 }
 
 // ---------- State & actions ----------
-const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true, engine: false };
+const state = { doors: false, windows: false, hood: false, trunk: false, wheels: false, lights: true, engine: false, gear: false, handbrake: false, dome: false, headunit: false, ac: false };
+
+// Timers and interior dampers
+let steerTime = 0;
+let revTime = 0;
+const steerDamper = { v: 0, t: 0, apply: (v) => { car.steerSpin.rotation.z = v; } };
+const speedoDamper = { v: 0, t: 0, apply: (v) => { car.speedoNeedle.rotation.z = v; } };
+const tachDamper = { v: 0, t: 0, apply: (v) => { car.tachNeedle.rotation.z = v; } };
 
 function setDoors(open) {
   state.doors = open;
@@ -137,6 +144,7 @@ function setLights(on) {
 }
 function setEngine(on) {
   state.engine = on;
+  if (!on) revTime = 0;
 }
 function resetAll() {
   setDoors(false);
@@ -146,6 +154,16 @@ function resetAll() {
   setWheels(false);
   setLights(true);
   setEngine(false);
+  state.gear = false;
+  state.handbrake = false;
+  state.dome = false;
+  state.headunit = false;
+  state.ac = false;
+  steerTime = 0;
+  revTime = 0;
+  steerDamper.t = 0;
+  car.gearDamper.t = 0;
+  car.brakeDamper.t = 0;
   view('front');
   updateToolbar();
 }
@@ -168,6 +186,12 @@ function highlight(id) {
   const entries = [];
   car.group.traverse((o) => {
     if (o.isMesh && o.userData.componentId === id && o.material.emissive) {
+      // Materials may be shared (body paint); clone once so highlighting
+      // only affects the selected part.
+      if (!o.material.userData.cloned) {
+        o.material = o.material.clone();
+        o.material.userData.cloned = true;
+      }
       entries.push({ mat: o.material, emissive: o.material.emissive.getHex(), intensity: o.material.emissiveIntensity });
       o.material.emissive.setHex(0x2b4bd8);
       o.material.emissiveIntensity = 0.55;
@@ -211,6 +235,13 @@ function labelFor(action) {
     case 'wheels': return state.wheels ? 'Install wheels' : 'Remove wheels';
     case 'lights': return state.lights ? 'Lights off' : 'Lights on';
     case 'engine': return state.engine ? 'Stop engine' : 'Start engine';
+    case 'steer': return 'Turn steering wheel';
+    case 'gear': return state.gear ? 'Shift to neutral' : 'Shift gear';
+    case 'handbrake': return state.handbrake ? 'Release handbrake' : 'Pull handbrake';
+    case 'dome': return state.dome ? 'Dome light off' : 'Dome light on';
+    case 'headunit': return state.headunit ? 'Head unit off' : 'Head unit on';
+    case 'ac': return state.ac ? 'AC off' : 'AC on';
+    case 'rev': return 'Press accelerator';
     default: return '';
   }
 }
@@ -231,7 +262,23 @@ function runAction(action) {
   else if (action === 'wheels') setWheels(!state.wheels);
   else if (action === 'lights') setLights(!state.lights);
   else if (action === 'engine') setEngine(!state.engine);
-  else if (action.startsWith('door:')) {
+  else if (action === 'gear') {
+    state.gear = !state.gear;
+    car.gearDamper.t = state.gear ? -0.5 : 0;
+  } else if (action === 'handbrake') {
+    state.handbrake = !state.handbrake;
+    car.brakeDamper.t = state.handbrake ? -0.7 : 0;
+  } else if (action === 'dome') {
+    state.dome = !state.dome;
+  } else if (action === 'headunit') {
+    state.headunit = !state.headunit;
+  } else if (action === 'ac') {
+    state.ac = !state.ac;
+  } else if (action === 'steer') {
+    steerTime = 2.4;
+  } else if (action === 'rev') {
+    if (state.engine) revTime = 1.6;
+  } else if (action.startsWith('door:')) {
     const d = car.doors[+action.slice(5)];
     if (d) d.openDamper.t = Math.abs(d.openDamper.t) < 0.01 ? d.openAngle : 0;
   } else if (action.startsWith('wheel:')) {
@@ -333,12 +380,38 @@ renderer.setAnimationLoop(() => {
   for (const w of car.wheels) damp(w.damper, dt);
 
   // Engine start simulation — visual only, not a physical simulation.
+  const revving = revTime > 0;
+  const revBoost = revving ? 3 : 1;
   if (state.engine) {
-    car.engineFan.rotation.z += dt * 10;
-    car.engineBlock.position.y = car.engineBaseY + Math.sin(clock.elapsedTime * 40) * 0.004;
+    car.engineFan.rotation.z += dt * 10 * revBoost;
+    car.engineBlock.position.y = car.engineBaseY + Math.sin(clock.elapsedTime * 40) * 0.004 * revBoost;
   } else {
     car.engineBlock.position.y = car.engineBaseY;
   }
+
+  // Steering wheel turn-and-center animation
+  if (steerTime > 0) {
+    steerTime = Math.max(0, steerTime - dt);
+    steerDamper.t = steerTime > 0 ? Math.sin((2.4 - steerTime) * 2.6) * 1.2 : 0;
+  }
+  damp(steerDamper, dt);
+
+  // Gauge needles follow engine state and throttle
+  revTime = Math.max(0, revTime - dt);
+  speedoDamper.t = state.engine ? (revving ? 2.4 : 1.4) : 0;
+  tachDamper.t = state.engine ? (revving ? 2.2 : 0.7) : 0;
+  damp(speedoDamper, dt);
+  damp(tachDamper, dt);
+
+  // Accelerator pedal dips while revving
+  car.accelDamper.t = revving ? -0.35 : 0;
+  damp(car.accelDamper, dt);
+
+  // Illumination follows its state
+  car.clusterMat.emissiveIntensity = THREE.MathUtils.damp(car.clusterMat.emissiveIntensity, state.engine ? 1 : 0.12, 6, dt);
+  car.headUnitMat.emissiveIntensity = THREE.MathUtils.damp(car.headUnitMat.emissiveIntensity, state.headunit ? 1.2 : 0.06, 6, dt);
+  car.domeMat.emissiveIntensity = THREE.MathUtils.damp(car.domeMat.emissiveIntensity, state.dome ? 1.2 : 0.05, 6, dt);
+  car.domePoint.intensity = THREE.MathUtils.damp(car.domePoint.intensity, state.dome ? 2 : 0, 6, dt);
 
   // Glass visibility inside/outside
   const inside = camera.position.distanceTo(cabinCenter) < 2.2;
