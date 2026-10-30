@@ -107,6 +107,15 @@ const assetBadge = document.getElementById('asset-badge');
 
 function installAsset(gltf) {
   const model = gltf.scene;
+  // Normalize any asset to realistic car scale: fit to 4.4 m length,
+  // center on the origin, wheels resting on the ground.
+  const pre = new THREE.Box3().setFromObject(model);
+  const preSize = pre.getSize(new THREE.Vector3());
+  const s = 4.4 / Math.max(preSize.x, preSize.z, 0.001);
+  model.scale.setScalar(s);
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.set(-center.x, -box.min.y, -center.z);
   model.traverse((o) => {
     const mapped = NODE_MAP[String(o.name).toLowerCase()];
     if (mapped) o.userData.componentId = mapped;
@@ -120,6 +129,7 @@ function installAsset(gltf) {
   raycastTarget = model;
   deselect();
   assetBadge.hidden = false;
+  assetBadge.textContent = 'Real 3D asset loaded and auto-fitted. Tap parts to inspect. Animations expect named nodes (hood, trunk, door_front_left…).';
 }
 
 function loadAssetFile(file) {
@@ -132,7 +142,11 @@ function loadAssetFile(file) {
 }
 
 // If a real asset ships with the repo, use it instead of the placeholder.
-new GLTFLoader().load('assets/civic-ek3.glb', installAsset, undefined, () => {});
+assetBadge.hidden = false;
+assetBadge.textContent = 'Loading your Civic model (48 MB, one-time download)…';
+new GLTFLoader().load('assets/civic-ek3.glb', installAsset, undefined, () => {
+  assetBadge.hidden = true;
+});
 
 document.getElementById('btn-asset').addEventListener('click', () => document.getElementById('asset-input').click());
 document.getElementById('asset-input').addEventListener('change', (e) => {
