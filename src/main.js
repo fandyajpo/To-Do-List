@@ -114,6 +114,17 @@ const NODE_MAP = {
 
 const assetBadge = document.getElementById('asset-badge');
 
+let assetLoaded = false;
+let assetModel = null;
+let assetBaseY = 0;
+let assetLights = null;
+const ASSET_TOURS = {
+  doors: { pos: [3.2, 1.3, 1.6], target: [0.7, 0.8, 0.2], id: 'vehicle.exterior.door.front_left' },
+  windows: { pos: [3.4, 1.5, -0.8], target: [0.7, 1.05, -0.2], id: 'vehicle.exterior.windshield' },
+  hood: { pos: [0.9, 1.8, 3.6], target: [0, 0.75, 1.2], id: 'vehicle.exterior.hood' },
+  trunk: { pos: [0, 1.8, -4.4], target: [0, 0.95, -1.5], id: 'vehicle.exterior.trunk' }
+};
+
 function installAsset(gltf) {
   const model = gltf.scene;
   // Normalize any asset to realistic car scale: fit to 4.4 m length,
@@ -138,7 +149,10 @@ function installAsset(gltf) {
   raycastTarget = model;
   deselect();
   assetBadge.hidden = false;
-  assetBadge.textContent = 'Real Civic asset loaded. Wheels can be pulled; doors/hood/trunk are merged in this asset and cannot open.';
+  assetBadge.textContent = 'Real Civic asset loaded and auto-fitted. Tap parts to inspect.';
+  assetLoaded = true;
+  assetModel = model;
+  assetBaseY = model.position.y;
 
   // Re-bind wheel removal to the asset's own wheels
   for (const [name, wi] of [['Wheel_FL', 0], ['Wheel_FR', 1], ['Wheel_RL', 2], ['Wheel_RR', 3]]) {
@@ -150,15 +164,11 @@ function installAsset(gltf) {
     car.wheels[wi].damper.apply = (v) => { node.position.x = baseX + dir * Math.abs(v); };
   }
 
-  // The asset's body is one merged mesh: doors/hood/trunk/engine cannot
-  // animate. Disable those controls honestly instead of faking it.
-  for (const act of ['doors', 'windows', 'hood', 'trunk', 'lights', 'engine', 'explode']) {
-    const btn = toolbar.querySelector(`button[data-act="${act}"]`);
-    if (btn) {
-      btn.disabled = true;
-      btn.style.opacity = '0.35';
-      btn.title = 'Not available on this asset — its body is a single merged mesh';
-    }
+  // Body tint to the owner's EK3 blue
+  const bodyMesh = model.getObjectByName('Honda_Civic_Body_Body_MAT_0');
+  if (bodyMesh && bodyMesh.material) {
+    bodyMesh.material = bodyMesh.material.clone();
+    bodyMesh.material.color.set(0x1e3cc8);
   }
 }
 
@@ -487,6 +497,9 @@ function labelFor(action) {
     const c = car.suspension[+action.slice(9)];
     return c && c.explode.t > 0 ? 'Reassemble corner' : 'Explode corner';
   }
+  if (assetLoaded && ['doors', 'windows', 'hood', 'trunk'].includes(action)) {
+    return 'Inspect ' + action;
+  }
   switch (action) {
     case 'hood': return state.hood ? 'Close hood' : 'Open hood';
     case 'trunk': return state.trunk ? 'Close trunk' : 'Open trunk';
@@ -527,6 +540,46 @@ function removeWheelFor(corner) {
 }
 
 function runAction(action) {
+  // Asset mode: guided part tours, working light beams, engine idle sim.
+  if (assetLoaded) {
+    const tour = ASSET_TOURS[action];
+    if (tour) {
+      moveCamera(tour.pos, tour.target);
+      showPanel(tour.id);
+      return;
+    }
+    if (action === 'lights') {
+      if (!assetLights) {
+        const mkSpot = (x) => {
+          const spot = new THREE.SpotLight(0xfff2cc, 0, 14, 0.55, 0.6, 1.2);
+          spot.position.set(x, 0.78, 2.2);
+          spot.target.position.set(x * 0.6, 0, 8);
+          scene.add(spot, spot.target);
+          return spot;
+        };
+        assetLights = { spots: [mkSpot(-0.55), mkSpot(0.55)], tail: null };
+        const tail = new THREE.PointLight(0xff2222, 0, 3.5, 1.5);
+        tail.position.set(0, 0.85, -2.35);
+        scene.add(tail);
+        assetLights.tail = tail;
+      }
+      state.lights = !state.lights;
+      for (const spot of assetLights.spots) spot.intensity = state.lights ? 3 : 0;
+      assetLights.tail.intensity = state.lights ? 2 : 0;
+      updateToolbar();
+      if (currentId) showPanel(currentId);
+      return;
+    }
+    if (action === 'engine') {
+      state.engine = !state.engine;
+      assetBadge.hidden = false;
+      assetBadge.textContent = state.engine ? 'Engine running — simulated idle (visual only)' : 'Engine off';
+      updateToolbar();
+      return;
+    }
+    // doors/windows/hood/trunk handled above; wheels, brakes, search etc
+    // fall through to the normal handlers which still work on the asset.
+  }
   if (action === 'hood') setHood(!state.hood);
   else if (action === 'trunk') setTrunk(!state.trunk);
   else if (action === 'doors') setDoors(!state.doors);
@@ -865,6 +918,11 @@ renderer.setAnimationLoop(() => {
   const inside = camera.position.distanceTo(cabinCenter) < 2.2;
   glassOpacity = THREE.MathUtils.damp(glassOpacity, inside ? 0.06 : 0.35, 6, dt);
   for (const m of glassMats) m.opacity = glassOpacity;
+
+  // Asset mode: engine idle vibrates the whole car subtly
+  if (assetLoaded && assetModel) {
+    assetModel.position.y = assetBaseY + (state.engine ? Math.sin(clock.elapsedTime * 40) * 0.003 : 0);
+  }
 
   if (camLerp) {
     camera.position.lerp(camGoal, 0.08);
