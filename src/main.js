@@ -182,6 +182,11 @@ function resetAll() {
   setLights(true);
   setEngine(false);
   setExplode(false);
+  for (const c of car.suspension) {
+    c.explode.t = 0;
+    c.service.t = 0;
+    c.serviceStep = 0;
+  }
   state.gear = false;
   state.handbrake = false;
   state.dome = false;
@@ -255,6 +260,15 @@ const panelDesc = document.getElementById('panel-desc');
 const panelAction = document.getElementById('panel-action');
 
 function labelFor(action) {
+  if (action.startsWith('brakes:')) {
+    const c = car.suspension[+action.slice(7)];
+    const step = c ? (c.serviceStep || 0) : 0;
+    return step === 0 ? 'Remove caliper' : step === 1 ? 'Remove disc' : 'Reinstall brakes';
+  }
+  if (action.startsWith('sexplode:')) {
+    const c = car.suspension[+action.slice(9)];
+    return c && c.explode.t > 0 ? 'Reassemble corner' : 'Explode corner';
+  }
   switch (action) {
     case 'hood': return state.hood ? 'Close hood' : 'Open hood';
     case 'trunk': return state.trunk ? 'Close trunk' : 'Open trunk';
@@ -278,9 +292,20 @@ function labelFor(action) {
 function actionFor(id) {
   const info = lookup(id);
   if (info.action) return info.action;
+  if (id.startsWith('vehicle.suspension.')) {
+    const i = car.suspension.findIndex((c) => id.includes('.' + c.corner + '.'));
+    return id.endsWith('.brakes') ? 'brakes:' + i : 'sexplode:' + i;
+  }
   if (id.startsWith('vehicle.exterior.door.')) return 'doors';
   if (id.startsWith('vehicle.wheels.')) return 'wheels';
   return null;
+}
+
+// Pulling a corner apart requires its wheel off first.
+function removeWheelFor(corner) {
+  const order = ['front_left', 'front_right', 'rear_left', 'rear_right'];
+  const wi = order.indexOf(corner.corner);
+  if (wi >= 0) car.wheels[wi].damper.t = car.wheels[wi].dir * 0.6;
 }
 
 function runAction(action) {
@@ -291,7 +316,37 @@ function runAction(action) {
   else if (action === 'wheels') setWheels(!state.wheels);
   else if (action === 'lights') setLights(!state.lights);
   else if (action === 'engine') setEngine(!state.engine);
-  else if (action === 'explode') setExplode(!state.explode);
+  else if (action === 'explode') {
+    if (currentId && currentId.startsWith('vehicle.suspension.')) {
+      const c = car.suspension.find((s) => currentId.includes('.' + s.corner + '.'));
+      if (c) {
+        c.explode.t = c.explode.t > 0 ? 0 : 1;
+        if (c.explode.t > 0) removeWheelFor(c);
+      }
+    } else {
+      setExplode(!state.explode);
+    }
+  }
+  else if (action.startsWith('sexplode:')) {
+    const c = car.suspension[+action.slice(9)];
+    if (c) {
+      c.explode.t = c.explode.t > 0 ? 0 : 1;
+      if (c.explode.t > 0) removeWheelFor(c);
+    }
+  }
+  else if (action.startsWith('brakes:')) {
+    const c = car.suspension[+action.slice(7)];
+    if (c) {
+      const w = car.wheels[+action.slice(7)];
+      const next = ((c.serviceStep || 0) + 1) % 3;
+      c.serviceStep = next;
+      c.service.t = next === 0 ? 0 : next === 1 ? 0.4 : 0.9;
+      // Dependency: the wheel must come off before the caliper; the
+      // caliper must come off before the disc. Reinstall reverses it.
+      if (next > 0 && Math.abs(w.damper.t) < 0.01) w.damper.t = w.dir * 0.6;
+      if (next === 0) w.damper.t = 0;
+    }
+  }
   else if (action === 'gear') {
     state.gear = !state.gear;
     car.gearDamper.t = state.gear ? -0.5 : 0;
@@ -491,6 +546,7 @@ car.group.traverse((o) => {
   if (o.isMesh && o.userData.isGlass && !glassMats.includes(o.material)) glassMats.push(o.material);
 });
 let glassOpacity = 0.35;
+let slowFrames = 0;
 
 function damp(d, dt) {
   d.v = THREE.MathUtils.damp(d.v, d.t, 6, dt);
@@ -515,6 +571,16 @@ renderer.setAnimationLoop(() => {
   }
 
   damp(explodeDamper, dt);
+
+  // Suspension corners: explode offsets + brake-service slides
+  for (const c of car.suspension) {
+    c.explode.v = THREE.MathUtils.damp(c.explode.v, c.explode.t, 6, dt);
+    c.service.v = THREE.MathUtils.damp(c.service.v, c.service.t, 6, dt);
+    for (const p of c.parts) {
+      p.mesh.position.copy(p.base).addScaledVector(p.off, c.explode.v);
+      if (p.slide) p.mesh.position.x += c.side * p.slide * c.service.v;
+    }
+  }
 
   // Steering wheel turn-and-center animation
   if (steerTime > 0) {
@@ -553,6 +619,14 @@ renderer.setAnimationLoop(() => {
 
   controls.update();
   renderer.render(scene, camera);
+
+  // Adaptive quality: if frames run slow, step the render resolution down.
+  if (dt > 0.033) slowFrames++;
+  else slowFrames = Math.max(0, slowFrames - 2);
+  if (slowFrames > 90 && renderer.getPixelRatio() > 1) {
+    renderer.setPixelRatio(renderer.getPixelRatio() - 0.5);
+    slowFrames = 0;
+  }
 });
 
 updateToolbar();
