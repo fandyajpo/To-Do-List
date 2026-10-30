@@ -23,6 +23,28 @@ function rounded(w, h, d, r = 0.05, seg = 3) {
   return new RoundedBoxGeometry(w, h, d, seg, r);
 }
 
+// Extrudes a side-profile polyline across the car's width with beveled
+// (rounded) flanks. points are [z, y] pairs in car coordinates; the
+// silhouette stays true while the flanks curve like real bodywork.
+function profileMesh(points, width, bevel, material) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) shape.lineTo(-points[i][0], points[i][1]);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: width,
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelSegments: 3,
+    curveSegments: 1
+  });
+  geo.rotateY(Math.PI / 2);
+  geo.translate(-width / 2, 0, 0);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 // A damper animates one scalar smoothly toward a target every frame.
 function damper(v, apply) {
   return { v, t: v, apply };
@@ -45,97 +67,120 @@ export function buildCar() {
   const paint = M.paint();
   const dark = M.dark();
 
-  // ---- Body shell ----
-  const body = new THREE.Mesh(rounded(1.7, 0.5, 4.3, 0.14), paint);
-  body.position.set(0, 0.6, 0);
-  body.castShadow = true;
+  // ---- Body shell: extruded side profile for a real EK sedan silhouette ----
+  // Long sloping hood, compact cabin, defined trunk deck, rounded flanks.
+  const body = profileMesh([
+    [2.2, 0.3], [2.25, 0.5], [2.1, 0.7], [1.8, 0.78],
+    [0.9, 0.88], [-0.6, 0.88], [-1.2, 0.89],
+    [-1.95, 0.86], [-2.1, 0.72], [-2.18, 0.48], [-2.08, 0.3]
+  ], 1.5, 0.07, paint);
   body.userData.componentId = 'vehicle.exterior.body';
   car.add(body);
 
-  // Front and rear bumper covers
-  const bumperF = new THREE.Mesh(rounded(1.74, 0.2, 0.3, 0.08), dark);
-  bumperF.position.set(0, 0.42, 2.18);
-  const bumperR = bumperF.clone();
-  bumperR.position.z = -2.18;
-  car.add(bumperF, bumperR);
+  // Black lower valances under the body-color bumper contours
+  const valanceGeo = rounded(1.5, 0.14, 0.2, 0.05);
+  for (const z of [2.12, -2.12]) {
+    const v = new THREE.Mesh(valanceGeo, dark);
+    v.position.set(0, 0.36, z);
+    car.add(v);
+  }
+
+  // Rectangular lower air intake on the front bumper
+  const intake = new THREE.Mesh(rounded(0.9, 0.09, 0.06, 0.02), dark);
+  intake.position.set(0, 0.4, 2.22);
+  car.add(intake);
 
   // Side skirts + black side moldings (per reference photos)
   const skirtL = new THREE.Mesh(rounded(0.08, 0.12, 2.4, 0.03), dark);
-  skirtL.position.set(0.85, 0.36, 0);
+  skirtL.position.set(0.8, 0.36, 0);
   const skirtR = skirtL.clone();
-  skirtR.position.x = -0.85;
+  skirtR.position.x = -0.8;
   car.add(skirtL, skirtR);
 
   const moldingGeo = rounded(0.02, 0.06, 2.5, 0.008, 1);
   for (const side of [1, -1]) {
     const molding = new THREE.Mesh(moldingGeo, dark);
-    molding.position.set(side * 0.87, 0.64, 0.15);
+    molding.position.set(side * 0.84, 0.62, 0.1);
     car.add(molding);
   }
 
   // Front lip under the bumper
-  const frontLip = new THREE.Mesh(rounded(1.7, 0.05, 0.18, 0.02), dark);
-  frontLip.position.set(0, 0.3, 2.26);
+  const frontLip = new THREE.Mesh(rounded(1.66, 0.05, 0.18, 0.02), dark);
+  frontLip.position.set(0, 0.28, 2.2);
   car.add(frontLip);
 
-  // ---- Greenhouse: roof, pillars, glass band ----
-  const roof = new THREE.Mesh(rounded(1.5, 0.09, 2.3, 0.04), paint);
-  roof.position.set(0, 1.33, -0.28);
+  // ---- Greenhouse: roof, pillars, glass — set in from the body flanks ----
+  const roof = new THREE.Mesh(rounded(1.42, 0.06, 1.51, 0.03), paint);
+  roof.position.set(0, 1.44, -0.345);
   roof.castShadow = true;
   roof.userData.componentId = 'vehicle.exterior.roof';
   car.add(roof);
 
-  const glassBand = new THREE.Mesh(rounded(1.5, 0.32, 2.24, 0.03), M.glass());
-  glassBand.position.set(0, 1.12, -0.28);
-  glassBand.userData.isGlass = true;
-  car.add(glassBand);
-
-  const pillarGeo = rounded(0.07, 0.34, 0.08, 0.02);
-  for (const [x, z] of [[0.73, 0.86], [-0.73, 0.86], [0.73, -0.28], [-0.73, -0.28], [0.73, -1.4], [-0.73, -1.4]]) {
-    const p = new THREE.Mesh(pillarGeo, paint);
-    p.position.set(x, 1.12, z);
-    car.add(p);
-  }
-
-  // Windshield and rear glass slabs — slanted like the EK greenhouse
-  const windshield = new THREE.Mesh(rounded(1.44, 0.05, 0.72, 0.02), M.glass());
-  windshield.position.set(0, 1.11, 0.94);
-  windshield.rotation.x = -0.5;
+  const windshield = new THREE.Mesh(rounded(1.38, 0.712, 0.05, 0.02), M.glass());
+  windshield.position.set(0, 1.16, 0.63);
+  windshield.rotation.x = -0.666;
   windshield.userData.isGlass = true;
   windshield.userData.componentId = 'vehicle.exterior.windshield';
   car.add(windshield);
 
-  const rearGlass = new THREE.Mesh(rounded(1.4, 0.05, 0.62, 0.02), M.glass());
-  rearGlass.position.set(0, 1.11, -1.48);
-  rearGlass.rotation.x = 0.5;
+  const rearGlass = new THREE.Mesh(rounded(1.36, 0.595, 0.05, 0.02), M.glass());
+  rearGlass.position.set(0, 1.17, -1.225);
+  rearGlass.rotation.x = -2.71;
   rearGlass.userData.isGlass = true;
   rearGlass.userData.componentId = 'vehicle.exterior.rear_glass';
   car.add(rearGlass);
 
-  // ---- Hood (hinged at cowl, opens at front) ----
+  const pillarMat = dark;
+  for (const side of [1, -1]) {
+    // A-pillars follow the windshield slope
+    const aPillar = new THREE.Mesh(rounded(0.06, 0.712, 0.07, 0.02), pillarMat);
+    aPillar.position.set(side * 0.73, 1.16, 0.58);
+    aPillar.rotation.x = -0.666;
+    car.add(aPillar);
+    // B-pillars between the doors
+    const bPillar = new THREE.Mesh(rounded(0.06, 0.58, 0.07, 0.02), pillarMat);
+    bPillar.position.set(side * 0.73, 1.16, -0.3);
+    car.add(bPillar);
+    // C-pillars: short and steep, flowing into the deck
+    const cPillar = new THREE.Mesh(rounded(0.06, 0.6, 0.1, 0.02), pillarMat);
+    cPillar.position.set(side * 0.73, 1.16, -1.25);
+    cPillar.rotation.x = -2.71;
+    car.add(cPillar);
+    // Rear quarter glass
+    const quarter = new THREE.Mesh(rounded(0.04, 0.28, 0.42, 0.015), M.glass());
+    quarter.position.set(side * 0.74, 1.12, -0.75);
+    quarter.userData.isGlass = true;
+    car.add(quarter);
+    // Black beltline trim along the window base
+    const belt = new THREE.Mesh(rounded(0.02, 0.04, 2.2, 0.008, 1), dark);
+    belt.position.set(side * 0.72, 0.92, -0.25);
+    car.add(belt);
+  }
+
+  // ---- Hood (hinged at cowl, opens at front; sits over the sloping profile) ----
   const hoodPivot = new THREE.Group();
-  hoodPivot.position.set(0, 0.92, 1.12);
-  const hood = new THREE.Mesh(rounded(1.55, 0.07, 0.95, 0.03), paint);
-  hood.position.set(0, 0, 0.475);
+  hoodPivot.position.set(0, 0.885, 0.95);
+  const hood = new THREE.Mesh(rounded(1.56, 0.07, 1.0, 0.03), paint);
+  hood.position.set(0, 0, 0.5);
   hoodPivot.add(selectable(hood, 'vehicle.exterior.hood'));
   car.add(hoodPivot);
   const hoodDamper = damper(0, (v) => { hoodPivot.rotation.x = v; });
 
-  // ---- Trunk lid (hinged at forward edge) ----
+  // ---- Trunk lid (flush with the high rear deck, between quarter panels) ----
   const trunkPivot = new THREE.Group();
-  trunkPivot.position.set(0, 0.92, -1.45);
-  const trunk = new THREE.Mesh(rounded(1.55, 0.07, 0.62, 0.03), paint);
-  trunk.position.set(0, 0, -0.31);
+  trunkPivot.position.set(0, 0.9, -1.2);
+  const trunk = new THREE.Mesh(rounded(1.42, 0.07, 0.75, 0.03), paint);
+  trunk.position.set(0, 0, -0.375);
   trunkPivot.add(selectable(trunk, 'vehicle.exterior.trunk'));
 
   // Lip spoiler riding on the trunk lid
-  const spoilerBlade = new THREE.Mesh(rounded(1.3, 0.04, 0.16, 0.015), dark);
-  spoilerBlade.position.set(0, 0.12, -0.52);
+  const spoilerBlade = new THREE.Mesh(rounded(1.36, 0.04, 0.14, 0.015), dark);
+  spoilerBlade.position.set(0, 0.1, -0.6);
   spoilerBlade.userData.componentId = 'vehicle.exterior.spoiler';
   trunkPivot.add(spoilerBlade);
-  for (const sx of [0.5, -0.5]) {
-    const upright = new THREE.Mesh(rounded(0.04, 0.09, 0.09, 0.015), dark);
-    upright.position.set(sx, 0.055, -0.5);
+  for (const sx of [0.55, -0.55]) {
+    const upright = new THREE.Mesh(rounded(0.04, 0.08, 0.08, 0.015), dark);
+    upright.position.set(sx, 0.05, -0.56);
     trunkPivot.add(upright);
   }
 
@@ -152,8 +197,8 @@ export function buildCar() {
     shell.position.set(0, 0, -len / 2);
     pivot.add(selectable(shell, id));
 
-    const glass = new THREE.Mesh(rounded(0.05, 0.3, len - 0.14, 0.02), M.glass());
-    glass.position.set(side * 0.005, 0.47, -len / 2);
+    const glass = new THREE.Mesh(rounded(0.05, 0.3, len - 0.16, 0.02), M.glass());
+    glass.position.set(side * -0.16, 0.42, -len / 2);
     glass.userData.isGlass = true;
     pivot.add(glass);
 
@@ -173,33 +218,34 @@ export function buildCar() {
   makeDoor('vehicle.exterior.door.rear_left', 1, 0.05, 0.88, -1.0);
   makeDoor('vehicle.exterior.door.rear_right', -1, 0.05, 0.88, 1.0);
 
-  // Mirrors on the front door frames
+  // Mirrors near the front window corners
   for (const side of [1, -1]) {
     const mirror = new THREE.Mesh(rounded(0.1, 0.09, 0.16, 0.03), dark);
-    mirror.position.set(side * 0.98, 1.06, 0.92);
+    mirror.position.set(side * 0.9, 1.02, 0.8);
     mirror.userData.componentId = 'vehicle.exterior.mirrors';
     car.add(mirror);
   }
 
   // ---- Grille (body-colored surround with dark mesh), emblem, lamps ----
-  const grille = new THREE.Mesh(rounded(0.9, 0.18, 0.06, 0.02), paint);
-  grille.position.set(0, 0.74, 2.14);
+  const grille = new THREE.Mesh(rounded(0.68, 0.16, 0.06, 0.02), paint);
+  grille.position.set(0, 0.72, 2.08);
   grille.userData.componentId = 'vehicle.exterior.grille';
   car.add(grille);
 
-  const grilleMesh = new THREE.Mesh(rounded(0.76, 0.09, 0.07, 0.015), dark);
-  grilleMesh.position.set(0, 0.73, 2.15);
+  const grilleMesh = new THREE.Mesh(rounded(0.6, 0.09, 0.07, 0.015), dark);
+  grilleMesh.position.set(0, 0.72, 2.1);
   grilleMesh.userData.componentId = 'vehicle.exterior.grille';
   car.add(grilleMesh);
 
-  const emblem = new THREE.Mesh(rounded(0.09, 0.09, 0.03, 0.015), M.chrome());
-  emblem.position.set(0, 0.74, 2.2);
+  const emblem = new THREE.Mesh(rounded(0.08, 0.08, 0.03, 0.015), M.chrome());
+  emblem.position.set(0, 0.72, 2.14);
   car.add(emblem);
 
   const headMat = M.head();
   for (const side of [1, -1]) {
-    const lamp = new THREE.Mesh(rounded(0.44, 0.16, 0.08, 0.03), headMat);
-    lamp.position.set(side * 0.53, 0.76, 2.14);
+    const lamp = new THREE.Mesh(rounded(0.5, 0.12, 0.07, 0.025), headMat);
+    lamp.position.set(side * 0.5, 0.72, 2.1);
+    lamp.rotation.y = side * 0.08;
     lamp.userData.componentId = 'vehicle.exterior.headlights';
     car.add(lamp);
   }
@@ -208,29 +254,46 @@ export function buildCar() {
   const signalMat = new THREE.MeshStandardMaterial({ color: 0xff9500, emissive: 0xff9500, emissiveIntensity: 0.4, roughness: 0.3 });
   for (const side of [1, -1]) {
     const signal = new THREE.Mesh(rounded(0.09, 0.1, 0.08, 0.02), signalMat);
-    signal.position.set(side * 0.8, 0.76, 2.12);
+    signal.position.set(side * 0.79, 0.7, 2.05);
+    signal.rotation.y = side * 0.35;
     signal.userData.componentId = 'vehicle.exterior.headlights';
     car.add(signal);
   }
 
   const tailMat = M.tail();
   for (const side of [1, -1]) {
-    const lamp = new THREE.Mesh(rounded(0.42, 0.2, 0.08, 0.03), tailMat);
-    lamp.position.set(side * 0.53, 0.76, -2.14);
+    const lamp = new THREE.Mesh(rounded(0.44, 0.18, 0.07, 0.03), tailMat);
+    lamp.position.set(side * 0.5, 0.74, -2.12);
     lamp.userData.componentId = 'vehicle.exterior.taillights';
     car.add(lamp);
+    const wrap = new THREE.Mesh(rounded(0.06, 0.16, 0.18, 0.02), tailMat);
+    wrap.position.set(side * 0.75, 0.74, -2.06);
+    wrap.rotation.y = side * 0.5;
+    wrap.userData.componentId = 'vehicle.exterior.taillights';
+    car.add(wrap);
   }
+
+  // Rear license plate recess and trunk emblem
+  const plateRecess = new THREE.Mesh(rounded(0.44, 0.14, 0.03, 0.01), dark);
+  plateRecess.position.set(0, 0.7, -2.16);
+  car.add(plateRecess);
+  const plate = new THREE.Mesh(rounded(0.4, 0.1, 0.02, 0.005, 1), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.5 }));
+  plate.position.set(0, 0.7, -2.17);
+  car.add(plate);
+  const trunkEmblem = new THREE.Mesh(rounded(0.07, 0.07, 0.03, 0.015), M.chrome());
+  trunkEmblem.position.set(0, 0.82, -2.13);
+  car.add(trunkEmblem);
 
   // ---- Wheels ----
   function makeWheel(id, x, z) {
     const g = new THREE.Group();
     g.position.set(x, 0.31, z);
 
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.21, 28), M.tire());
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.24, 28), M.tire());
     tire.rotation.z = Math.PI / 2;
     tire.castShadow = true;
 
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.22, 20), M.rim());
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.25, 20), M.rim());
     rim.rotation.z = Math.PI / 2;
 
     g.add(tire, selectable(rim, id));
@@ -572,7 +635,7 @@ export function buildCar() {
     engineFan,
     engineBlock,
     engineBaseY: engineBlock.position.y,
-    glassBand,
+    glassBand: null,
     steerSpin,
     speedoNeedle,
     tachNeedle,
