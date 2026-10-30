@@ -131,6 +131,22 @@ button.primary {
   pointer-events: none;
 }
 
+#asset-badge:not([hidden]) {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  color: var(--text);
+  font-size: 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  max-width: 90%;
+  text-align: center;
+}
+
 /* ---------- Toolbar ---------- */
 
 #toolbar {

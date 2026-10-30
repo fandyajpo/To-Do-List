@@ -52,6 +52,28 @@ the procedural model in `car.js` is a clearly-labelled placeholder awaiting
 Blender-authored or licensed EK3 GLB assets — interactions attach to real
 asset nodes by the same IDs when they arrive.
 
+## Bringing in a real EK3 model
+
+The viewer has a GLB pipeline: drop `assets/civic-ek3.glb` into the repo and
+it loads automatically on start, or tap **3D model** in the top bar and pick
+any `.glb`/`.gltf` from the device to swap it in live. Node names map to
+component IDs so tap-to-inspect and highlighting keep working:
+
+`body`, `hood`, `trunk`, `roof`, `windshield`, `rear_glass`, `grille`,
+`headlights`, `taillights`, `mirrors`, `spoiler`, `dashboard`, `seats`,
+`door_front_left`…`door_rear_right`, `wheel_front_left`…`wheel_rear_right`.
+
+Good sources for an EK3 asset:
+
+- **Sketchfab** — search "Honda Civic EK3" / "Civic Ferio EK", filter by
+  downloadable (check each model's license before use)
+- **Photogrammetry** — the owner's reference photos are ideal input for a
+  scan-then-cleanup pass (Meshroom/Luma), exported as GLB
+- **Commissioned Blender work** modeled from the reference photo sheet
+
+With the asset in place, the procedural placeholder in `car.js` is replaced
+and animations can be re-bound to named pivot nodes by the same IDs.
+
 ## Status
 
 Phases 1–6 complete (foundation, exterior, interior, engine, suspension,

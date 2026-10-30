@@ -2,6 +2,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCar } from './car.js';
 import { lookup, COMPONENTS } from './registry.js';
@@ -70,6 +71,74 @@ scene.add(ground);
 // ---------- Vehicle ----------
 const car = buildCar();
 scene.add(car.group);
+let raycastTarget = car.group;
+
+// ---------- Real 3D asset pipeline ----------
+// Provide assets/civic-ek3.glb (or load any .glb via the toolbar button)
+// and it replaces the procedural placeholder. Node names map to registry
+// IDs: hood, trunk, roof, windshield, rear_glass, grille, headlights,
+// taillights, mirrors, spoiler, body, dashboard, seats,
+// door_front_left…door_rear_right, wheel_front_left…wheel_rear_right.
+const NODE_MAP = {
+  body: 'vehicle.exterior.body',
+  hood: 'vehicle.exterior.hood',
+  trunk: 'vehicle.exterior.trunk',
+  roof: 'vehicle.exterior.roof',
+  windshield: 'vehicle.exterior.windshield',
+  rear_glass: 'vehicle.exterior.rear_glass',
+  grille: 'vehicle.exterior.grille',
+  headlights: 'vehicle.exterior.headlights',
+  taillights: 'vehicle.exterior.taillights',
+  mirrors: 'vehicle.exterior.mirrors',
+  spoiler: 'vehicle.exterior.spoiler',
+  dashboard: 'vehicle.interior.dashboard',
+  seats: 'vehicle.interior.seats',
+  door_front_left: 'vehicle.exterior.door.front_left',
+  door_front_right: 'vehicle.exterior.door.front_right',
+  door_rear_left: 'vehicle.exterior.door.rear_left',
+  door_rear_right: 'vehicle.exterior.door.rear_right',
+  wheel_front_left: 'vehicle.wheels.front_left',
+  wheel_front_right: 'vehicle.wheels.front_right',
+  wheel_rear_left: 'vehicle.wheels.rear_left',
+  wheel_rear_right: 'vehicle.wheels.rear_right'
+};
+
+const assetBadge = document.getElementById('asset-badge');
+
+function installAsset(gltf) {
+  const model = gltf.scene;
+  model.traverse((o) => {
+    const mapped = NODE_MAP[String(o.name).toLowerCase()];
+    if (mapped) o.userData.componentId = mapped;
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  scene.remove(car.group);
+  scene.add(model);
+  raycastTarget = model;
+  deselect();
+  assetBadge.hidden = false;
+}
+
+function loadAssetFile(file) {
+  const url = URL.createObjectURL(file);
+  new GLTFLoader().load(url, installAsset, undefined, () => {
+    assetBadge.hidden = false;
+    assetBadge.textContent = 'Could not read that file — use a .glb/.gltf model.';
+    setTimeout(() => { assetBadge.hidden = true; assetBadge.textContent = 'Custom 3D asset loaded — tap parts to inspect. Animations expect named nodes (hood, trunk, door_front_left…).'; }, 4000);
+  });
+}
+
+// If a real asset ships with the repo, use it instead of the placeholder.
+new GLTFLoader().load('assets/civic-ek3.glb', installAsset, undefined, () => {});
+
+document.getElementById('btn-asset').addEventListener('click', () => document.getElementById('asset-input').click());
+document.getElementById('asset-input').addEventListener('change', (e) => {
+  if (e.target.files[0]) loadAssetFile(e.target.files[0]);
+  e.target.value = '';
+});
 
 // ---------- Size handling ----------
 function resize() {
@@ -217,7 +286,7 @@ function clearHighlight() {
 function highlight(id) {
   clearHighlight();
   const entries = [];
-  car.group.traverse((o) => {
+  raycastTarget.traverse((o) => {
     if (o.isMesh && o.userData.componentId === id && o.material.emissive) {
       // Materials may be shared (body paint); clone once so highlighting
       // only affects the selected part.
@@ -243,7 +312,7 @@ stage.addEventListener('pointerup', (e) => {
   const rect = stage.getBoundingClientRect();
   pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(pointer, camera);
-  const hits = ray.intersectObject(car.group, true);
+  const hits = ray.intersectObject(raycastTarget, true);
   for (const hit of hits) {
     let o = hit.object;
     while (o && !o.userData.componentId) o = o.parent;
@@ -377,7 +446,7 @@ function runAction(action) {
 function focusComponent(id) {
   const box = new THREE.Box3();
   const tmp = new THREE.Box3();
-  car.group.traverse((o) => {
+  raycastTarget.traverse((o) => {
     if (o.isMesh && o.userData.componentId === id) tmp.setFromObject(o), box.union(tmp);
   });
   if (box.isEmpty()) return;

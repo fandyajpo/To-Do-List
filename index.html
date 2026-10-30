@@ -11,6 +11,8 @@
     <div class="topbar-left">
       <div class="brand">CIVIC <span>FERIO EK3</span></div>
       <button id="btn-search" class="search-btn" aria-label="Search components">⌕</button>
+      <button id="btn-asset" class="search-btn" aria-label="Load a 3D model">3D model</button>
+      <input id="asset-input" type="file" accept=".glb,.gltf" hidden>
     </div>
     <nav class="views" aria-label="Camera views">
       <button data-view="front">Front</button>
@@ -32,6 +34,7 @@
     </div>
     <div id="hint">Drag to orbit · pinch or scroll to zoom · tap a part</div>
     <div id="loading">Loading the EK3…</div>
+    <div id="asset-badge" hidden>Custom 3D asset loaded — tap parts to inspect. Animations expect named nodes (hood, trunk, door_front_left…).</div>
     <div id="webgl-error" hidden>This device could not start WebGL, so the 3D viewer is unavailable.</div>
 
     <aside id="panel" aria-live="polite">
